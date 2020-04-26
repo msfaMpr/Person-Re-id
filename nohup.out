@@ -609,3 +609,123 @@ Training complete in 20m 17s
 
 Epoch 23/60
 ----------
+train Loss: 0.2241 Acc: 0.9978
+val Loss: 0.9699 Acc: 0.9467
+Training complete in 21m 12s
+
+Epoch 24/60
+----------
+train Loss: 0.2104 Acc: 0.9979
+val Loss: 0.9916 Acc: 0.9427
+Training complete in 22m 7s
+
+Epoch 25/60
+----------
+train Loss: 0.1977 Acc: 0.9979
+val Loss: 0.9630 Acc: 0.9414
+Training complete in 23m 2s
+
+Epoch 26/60
+----------
+train Loss: 0.1891 Acc: 0.9979
+val Loss: 0.9638 Acc: 0.9441
+Training complete in 23m 57s
+
+Epoch 27/60
+----------
+train Loss: 0.1886 Acc: 0.9978
+val Loss: 0.9516 Acc: 0.9441
+Training complete in 24m 52s
+
+Epoch 28/60
+----------
+train Loss: 0.1838 Acc: 0.9979
+val Loss: 0.9596 Acc: 0.9467
+Training complete in 25m 47s
+
+Epoch 29/60
+----------
+train Loss: 0.1765 Acc: 0.9979
+val Loss: 0.9268 Acc: 0.9454
+Training complete in 26m 42s
+
+Epoch 30/60
+----------
+train Loss: 0.1798 Acc: 0.9978
+val Loss: 0.9324 Acc: 0.9441
+Training complete in 27m 37s
+
+Epoch 31/60
+----------
+train Loss: 0.1798 Acc: 0.9979
+val Loss: 0.9364 Acc: 0.9441
+Training complete in 28m 32s
+
+Epoch 32/60
+----------
+train Loss: 0.1729 Acc: 0.9979
+val Loss: 0.9609 Acc: 0.9441
+Training complete in 29m 27s
+
+Epoch 33/60
+----------
+train Loss: 0.1793 Acc: 0.9979
+val Loss: 0.9419 Acc: 0.9441
+Training complete in 30m 23s
+
+Epoch 34/60
+----------
+train Loss: 0.1747 Acc: 0.9979
+val Loss: 0.9494 Acc: 0.9454
+Training complete in 31m 18s
+
+Epoch 35/60
+----------
+train Loss: 0.1695 Acc: 0.9979
+val Loss: 0.9343 Acc: 0.9441
+Training complete in 32m 13s
+
+Epoch 36/60
+----------
+train Loss: 0.1679 Acc: 0.9979
+val Loss: 0.9285 Acc: 0.9467
+Training complete in 33m 8s
+
+Epoch 37/60
+----------
+train Loss: 0.1746 Acc: 0.9979
+val Loss: 0.9084 Acc: 0.9454
+Training complete in 34m 3s
+
+Epoch 38/60
+----------
+train Loss: 0.1697 Acc: 0.9979
+val Loss: 0.9525 Acc: 0.9414
+Training complete in 34m 58s
+
+Epoch 39/60
+----------
+train Loss: 0.1781 Acc: 0.9978
+val Loss: 0.9655 Acc: 0.9414
+Training complete in 35m 53s
+
+Epoch 40/60
+----------
+train Loss: 0.1642 Acc: 0.9979
+val Loss: 0.9536 Acc: 0.9414
+Training complete in 36m 48s
+
+Epoch 41/60
+----------
+train Loss: 0.1700 Acc: 0.9979
+val Loss: 0.9442 Acc: 0.9414
+Training complete in 37m 43s
+
+Epoch 42/60
+----------
+train Loss: 0.1668 Acc: 0.9979
+val Loss: 0.9533 Acc: 0.9414
+Training complete in 38m 39s
+
+Epoch 43/60
+----------
