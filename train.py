@@ -178,7 +178,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             for data in dataloaders[phase]:
                 # get the inputs
                 inputs, labels = data
-                now_batch_size,c,h,w = inputs.shape
+                now_batch_size, _, _, _ = inputs.shape
                 if now_batch_size<opt.batchsize: # skip the last batch
                     continue
                 #print(inputs.shape)
