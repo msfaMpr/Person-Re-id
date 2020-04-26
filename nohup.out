@@ -531,3 +531,15 @@ Training complete in 8m 19s
 
 Epoch 10/60
 ----------
+train Loss: 1.3930 Acc: 0.9812
+val Loss: 2.4243 Acc: 0.8988
+Training complete in 9m 14s
+
+Epoch 11/60
+----------
+train Loss: 1.1882 Acc: 0.9874
+val Loss: 2.4863 Acc: 0.8948
+Training complete in 10m 9s
+
+Epoch 12/60
+----------
