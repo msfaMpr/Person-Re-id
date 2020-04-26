@@ -1,3 +1,4 @@
 *.pth
 *.out
 *.pyc
+*.mat
