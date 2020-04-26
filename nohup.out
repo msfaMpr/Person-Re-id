@@ -483,3 +483,105 @@ Training complete in 0m 56s
 
 Epoch 2/60
 ----------
+train Loss: 11.0560 Acc: 0.5618
+val Loss: 8.8805 Acc: 0.5912
+Training complete in 1m 51s
+
+Epoch 3/60
+----------
+train Loss: 6.9978 Acc: 0.7700
+val Loss: 6.4294 Acc: 0.7390
+Training complete in 2m 46s
+
+Epoch 4/60
+----------
+train Loss: 4.9209 Acc: 0.8602
+val Loss: 4.5520 Acc: 0.8096
+Training complete in 3m 41s
+
+Epoch 5/60
+----------
+train Loss: 3.7187 Acc: 0.9070
+val Loss: 3.7815 Acc: 0.8469
+Training complete in 4m 36s
+
+Epoch 6/60
+----------
+train Loss: 2.8686 Acc: 0.9356
+val Loss: 3.0900 Acc: 0.8802
+Training complete in 5m 32s
+
+Epoch 7/60
+----------
+train Loss: 2.2520 Acc: 0.9605
+val Loss: 3.2181 Acc: 0.8482
+Training complete in 6m 28s
+
+Epoch 8/60
+----------
+train Loss: 1.9125 Acc: 0.9684
+val Loss: 2.6176 Acc: 0.8948
+Training complete in 7m 23s
+
+Epoch 9/60
+----------
+train Loss: 1.5608 Acc: 0.9806
+val Loss: 2.8939 Acc: 0.8775
+Training complete in 8m 18s
+
+Epoch 10/60
+----------
+train Loss: 1.3564 Acc: 0.9831
+val Loss: 2.2139 Acc: 0.9068
+Training complete in 9m 13s
+
+Epoch 11/60
+----------
+train Loss: 1.1884 Acc: 0.9860
+val Loss: 2.0313 Acc: 0.9095
+Training complete in 10m 8s
+
+Epoch 12/60
+----------
+train Loss: 1.0052 Acc: 0.9898
+val Loss: 1.9136 Acc: 0.9174
+Training complete in 11m 3s
+
+Epoch 13/60
+----------
+train Loss: 0.9075 Acc: 0.9923
+val Loss: 1.8689 Acc: 0.9201
+Training complete in 11m 58s
+
+Epoch 14/60
+----------
+train Loss: 0.7816 Acc: 0.9928
+val Loss: 1.8036 Acc: 0.9148
+Training complete in 12m 53s
+
+Epoch 15/60
+----------
+train Loss: 0.7312 Acc: 0.9935
+val Loss: 1.7471 Acc: 0.9174
+Training complete in 13m 48s
+
+Epoch 16/60
+----------
+train Loss: 0.6641 Acc: 0.9950
+val Loss: 1.5644 Acc: 0.9294
+Training complete in 14m 43s
+
+Epoch 17/60
+----------
+train Loss: 0.5835 Acc: 0.9957
+val Loss: 1.4918 Acc: 0.9254
+Training complete in 15m 38s
+
+Epoch 18/60
+----------
+train Loss: 0.5393 Acc: 0.9957
+val Loss: 1.5355 Acc: 0.9294
+Training complete in 16m 33s
+
+Epoch 19/60
+----------
