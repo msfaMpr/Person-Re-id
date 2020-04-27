@@ -30,7 +30,7 @@ except ImportError: # will be 3.x series
 
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
+parser.add_argument('--which_epoch',default='39', type=str, help='0,1,2,3...or last')
 parser.add_argument('--test_dir',default='../Market/pytorch',type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
@@ -157,7 +157,7 @@ def extract_feature(model,dataloaders):
         if opt.PCB:
             ff = torch.FloatTensor(n, 1280, 4).zero_().cuda() # we have six parts
         if opt.LSTM:
-            ff = torch.FloatTensor(n, 320, 4).zero_().cuda()
+            ff = torch.FloatTensor(n, 640, 4).zero_().cuda()
 
         for i in range(2):
             if(i==1):
