@@ -180,7 +180,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)  # Set model to training mode
-                # model.model.train(False)
+                model.model.train(False)
             else:
                 model.train(False)  # Set model to evaluate mode
 
@@ -362,7 +362,7 @@ if opt.PCB:
     model = PCB_Effi(opt.nclasses)
 
 if opt.PCB and opt.LSTM:
-    model_name = 'PCB_Effi_NLAC_RE_WE'
+    model_name = 'PCB_Effi'
     model = load_network(model, model_name)
     model = PCB_Effi_LSTM(model)
     # model_name = 'LSTM'

@@ -386,7 +386,7 @@ class PCB_Effi_LSTM(nn.Module):
         # self.hiddenDim = self.feature_dim
 
         self.lstm = nn.LSTM(self.feature_dim, self.hiddenDim)
-        self.lstm_linear = nn.Linear(self.hiddenDim, self.hiddenDim)
+        # self.lstm_linear = nn.Linear(self.hiddenDim, self.hiddenDim)
 
         self.classifier = ClassBlock(
             self.feature_dim, self.class_num, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256)
@@ -407,9 +407,9 @@ class PCB_Effi_LSTM(nn.Module):
         x = x.transpose(1, 0)  # pxbx1280
 
         output, hn = self.lstm(x, (h0, c0))
-        x = output.reshape((output.size(0) * output.size(1), self.hiddenDim))
+        # x = output.reshape((output.size(0) * output.size(1), self.hiddenDim))
         # x = self.lstm_linear(x)
-        x = x.reshape((output.size(0), output.size(1), self.hiddenDim))
+        # x = x.reshape((output.size(0), output.size(1), self.hiddenDim))
         x = output.transpose(1, 0)  # bxpxh
         x = x.transpose(2, 1) # bxhxp
         x = torch.flatten(x, 1)
