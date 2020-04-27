@@ -428,7 +428,7 @@ class PCB_Effi_LSTM_test(nn.Module):
 
         self.hiddenDim = model.hiddenDim
         self.lstm = model.lstm
-        # self.lstm_linear = model.lstm_linear
+        self.lstm_linear = model.lstm_linear
 
     def forward(self, x):
         x = self.model.extract_features(x)
@@ -444,9 +444,9 @@ class PCB_Effi_LSTM_test(nn.Module):
         x = x.transpose(1, 0)  # pxbx1280
 
         output, hn = self.lstm(x, (h0, c0))
-        # x = output.reshape((output.size(0) * output.size(1), self.hiddenDim))
+        x = output.reshape((output.size(0) * output.size(1), self.hiddenDim))
         # x = self.lstm_linear(x)
-        # x = x.reshape((output.size(0), output.size(1), self.hiddenDim))
+        x = x.reshape((output.size(0), output.size(1), self.hiddenDim))
         x = output.transpose(1, 0)  # bxpxh
         x = x.transpose(2, 1) # bxhxp
 

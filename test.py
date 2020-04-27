@@ -233,13 +233,14 @@ model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
 
-if opt.PCB:
+if opt.LSTM:
+    model = PCB_Effi_LSTM_test(model)
+
+elif opt.PCB and not opt.LSTM:
     #if opt.fp16:
     #    model = PCB_test(model[1])
     #else:
         model = PCB_Effi_test(model)
-# if opt.LSTM:
-#     model = PCB_Effi_LSTM_test(model)
 else:
     #if opt.fp16:
         #model[1].model.fc = nn.Sequential()
