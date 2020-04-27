@@ -45,13 +45,13 @@ parser.add_argument('--color_jitter', action='store_true',
                     help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--erasing_p', default=0.3, type=float,
+parser.add_argument('--erasing_p', default=0, type=float,
                     help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NAS')
-parser.add_argument('--warm_epoch', default=10, type=int,
+parser.add_argument('--warm_epoch', default=0, type=int,
                     help='the first K epoch that needs warm up')
-parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
 parser.add_argument('--LSTM', action='store_true', help='use PCB+LSTM')
