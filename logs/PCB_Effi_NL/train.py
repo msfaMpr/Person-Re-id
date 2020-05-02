@@ -16,8 +16,7 @@ import matplotlib.pyplot as plt
 #from PIL import Image
 import time
 import os
-from models.base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_Effi
-from models.lstm_model import PCB_Effi_LSTM
+from model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_Effi, PCB_Effi_LSTM
 from random_erasing import RandomErasing
 import yaml
 import math
@@ -46,13 +45,13 @@ parser.add_argument('--color_jitter', action='store_true',
                     help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--erasing_p', default=0.0, type=float,
+parser.add_argument('--erasing_p', default=0.3, type=float,
                     help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NAS')
-parser.add_argument('--warm_epoch', default=0, type=int,
+parser.add_argument('--warm_epoch', default=10, type=int,
                     help='the first K epoch that needs warm up')
-parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
 parser.add_argument('--LSTM', action='store_true', help='use PCB+LSTM')
@@ -181,8 +180,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)  # Set model to training mode
-                if opt.LSTM:
-                    model.model.train(False)
+                # model.model.train(False)
             else:
                 model.train(False)  # Set model to evaluate mode
 
@@ -364,7 +362,7 @@ if opt.PCB:
     model = PCB_Effi(opt.nclasses)
 
 if opt.PCB and opt.LSTM:
-    model_name = 'PCB_Effi_NL'
+    model_name = 'PCB_Effi'
     model = load_network(model, model_name)
     model = PCB_Effi_LSTM(model)
     # model_name = 'LSTM'
@@ -475,4 +473,4 @@ if fp16:
 criterion = nn.CrossEntropyLoss()
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=50)
+                    num_epochs=60)

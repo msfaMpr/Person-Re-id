@@ -18,8 +18,8 @@ import os
 import scipy.io
 import yaml
 import math
-from base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test, PCB_Effi, PCB_Effi_test
-from lstm_model import PCB_Effi_LSTM, PCB_Effi_LSTM_test
+from models.base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test, PCB_Effi, PCB_Effi_test
+from models.lstm_model import PCB_Effi_LSTM, PCB_Effi_LSTM_test
 
 #fp16
 try:
