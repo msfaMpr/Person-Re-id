@@ -3,6 +3,7 @@
 from __future__ import print_function, division
 
 import argparse
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -17,7 +18,8 @@ import os
 import scipy.io
 import yaml
 import math
-from model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test, PCB_Effi, PCB_Effi_test, PCB_Effi_LSTM, PCB_Effi_LSTM_test
+from base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test, PCB_Effi, PCB_Effi_test
+from lstm_model import PCB_Effi_LSTM, PCB_Effi_LSTM_test
 
 #fp16
 try:
@@ -30,7 +32,7 @@ except ImportError: # will be 3.x series
 
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--which_epoch',default='39', type=str, help='0,1,2,3...or last')
+parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
 parser.add_argument('--test_dir',default='../Market/pytorch',type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
@@ -147,12 +149,12 @@ def fliplr(img):
 
 def extract_feature(model,dataloaders):
     features = torch.FloatTensor()
-    count = 0
-    for data in dataloaders:
+    # count = 0
+    for data in tqdm(dataloaders):
         img, label = data
         n, c, h, w = img.size()
-        count += n
-        print(count)
+        # count += n
+        # print(count)
         ff = torch.FloatTensor(n, 512).zero_().cuda()
         if opt.PCB:
             ff = torch.FloatTensor(n, 1280, 4).zero_().cuda() # we have six parts
