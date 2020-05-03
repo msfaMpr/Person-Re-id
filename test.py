@@ -46,7 +46,7 @@ parser.add_argument('--ms',default='1', type=str,help='multiple_scale: e.g. 1 1,
 opt = parser.parse_args()
 ###load config###
 # load the training config
-config_path = os.path.join('./model',opt.name,'opts.yaml')
+config_path = os.path.join('./logs',opt.name,'opts.yaml')
 with open(config_path, 'r') as stream:
         config = yaml.load(stream)
 opt.fp16 = config['fp16'] 
@@ -131,7 +131,7 @@ use_gpu = torch.cuda.is_available()
 # Load model
 #---------------------------
 def load_network(network):
-    save_path = os.path.join('./model',name,'net_%s.pth'%opt.which_epoch)
+    save_path = os.path.join('./logs',name,'net_%s.pth'%opt.which_epoch)
     network.load_state_dict(torch.load(save_path))
     return network
 
@@ -267,7 +267,7 @@ result = {'gallery_f':gallery_feature.numpy(),'gallery_label':gallery_label,'gal
 scipy.io.savemat('pytorch_result.mat',result)
 
 print(opt.name)
-result = './model/%s/result.txt'%opt.name
+result = './logs/%s/result.txt'%opt.name
 os.system('python evaluate_gpu.py | tee -a %s'%result)
 
 if opt.multi:
