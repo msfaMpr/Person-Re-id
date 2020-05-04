@@ -40,13 +40,13 @@ parser.add_argument('--name', default='ft_ResNet50', type=str, help='output mode
 parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data')
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
-parser.add_argument('--batchsize', default=16, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NAS')
 parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
-parser.add_argument('--lr', default=0.005, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--multi_loss', action='store_true', help='use muliple loss')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
@@ -231,17 +231,17 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     for i in range(num_part-1):
                         loss += criterion(part[i+1], labels)
 
-                    for i in range(num_part-1):
-                        loss += criterion(outputs[num_part+i], labels)
+                    # for i in range(num_part-1):
+                    #     loss += criterion(outputs[num_part+i], labels)
 
-                    for i in range(num_part-2):
-                        loss + criterion(outputs[2*num_part+i-1], labels)
+                    # for i in range(num_part-2):
+                    #     loss + criterion(outputs[2*num_part+i-1], labels)
 
-                    for i in range(num_part-3):
-                        loss + criterion(outputs[3*num_part+i-3], labels)
+                    # for i in range(num_part-3):
+                    #     loss + criterion(outputs[3*num_part+i-3], labels)
 
-                    for i in range(5):
-                        loss += criterion(outputs[10+i], labels)
+                    # for i in range(5):
+                    #     loss += criterion(outputs[10+i], labels)
 
                 # backward + optimize only if in training phase
                 if epoch < opt.warm_epoch and phase == 'train':
@@ -277,7 +277,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # deep copy the model
             if phase == 'val':
                 last_model_wts = model.state_dict()
-                if epoch % 5 == 4:
+                if epoch % 10 == 9:
                     save_network(model, epoch+1)
                 draw_curve(epoch)
 
@@ -388,23 +388,23 @@ else:
                        + list(map(id, model.classifierA2.parameters()))
                        + list(map(id, model.classifierA3.parameters()))
 
-                        +list(map(id, model.classifierB0.parameters() ))
-                        +list(map(id, model.classifierB1.parameters() ))
-                        +list(map(id, model.classifierB2.parameters() ))
+                        # +list(map(id, model.classifierB0.parameters() ))
+                        # +list(map(id, model.classifierB1.parameters() ))
+                        # +list(map(id, model.classifierB2.parameters() ))
 
-                        +list(map(id, model.classifierC0.parameters() ))
-                        +list(map(id, model.classifierC1.parameters() ))
+                        # +list(map(id, model.classifierC0.parameters() ))
+                        # +list(map(id, model.classifierC1.parameters() ))
 
-                        +list(map(id, model.classifierD0.parameters() ))
+                        # +list(map(id, model.classifierD0.parameters() ))
 
-                        +list(map(id, model.classifierB3.parameters() ))
-                        +list(map(id, model.classifierB4.parameters() ))
-                        +list(map(id, model.classifierB5.parameters() ))
+                        # +list(map(id, model.classifierB3.parameters() ))
+                        # +list(map(id, model.classifierB4.parameters() ))
+                        # +list(map(id, model.classifierB5.parameters() ))
 
-                        +list(map(id, model.classifierC2.parameters() ))
-                        +list(map(id, model.classifierC3.parameters() ))
+                        # +list(map(id, model.classifierC2.parameters() ))
+                        # +list(map(id, model.classifierC3.parameters() ))
 
-                        +list(map(id, model.model.parameters()))
+                        # +list(map(id, model.model.parameters()))
 
                        #  +list(map(id, model.classifier4.parameters() ))
                        #  +list(map(id, model.classifier5.parameters() ))
@@ -422,21 +422,21 @@ else:
         {'params': model.classifierA2.parameters(), 'lr': opt.lr},
         {'params': model.classifierA3.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB1.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB2.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB1.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB2.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC1.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC1.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierD0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierD0.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB3.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB4.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB5.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB3.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB4.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB5.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC2.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC3.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC2.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
         #  {'params': model.classifier4.parameters(), 'lr': opt.lr},
         #  {'params': model.classifier5.parameters(), 'lr': opt.lr},
@@ -478,4 +478,4 @@ if fp16:
 criterion = nn.CrossEntropyLoss()
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=25)
+                    num_epochs=60)

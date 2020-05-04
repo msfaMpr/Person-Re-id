@@ -16,7 +16,9 @@ import matplotlib.pyplot as plt
 #from PIL import Image
 import time
 import os
-from model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_Effi, PCB_Effi_LSTM
+from models.base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_Effi
+from models.lstm_model import PCB_Effi_LSTM
+from models.ggnn_model import PCB_Effi_GGNN
 from random_erasing import RandomErasing
 import yaml
 import math
@@ -33,30 +35,24 @@ except ImportError:  # will be 3.x series
 # Options
 # --------
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu_ids', default='0', type=str,
-                    help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--name', default='ft_ResNet50',
-                    type=str, help='output model name')
-parser.add_argument('--data_dir', default='../Market/pytorch',
-                    type=str, help='training dir path')
-parser.add_argument('--train_all', action='store_true',
-                    help='use all training data')
-parser.add_argument('--color_jitter', action='store_true',
-                    help='use color jitter in training')
+parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
+parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
+parser.add_argument('--train_all', action='store_true', help='use all training data')
+parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--erasing_p', default=0.3, type=float,
-                    help='Random Erasing probability, in [0,1]')
+parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NAS')
-parser.add_argument('--warm_epoch', default=10, type=int,
-                    help='the first K epoch that needs warm up')
+parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
 parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
+parser.add_argument('--multi_loss', action='store_true', help='use muliple loss')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
-parser.add_argument('--LSTM', action='store_true', help='use PCB+LSTM')
-parser.add_argument('--fp16', action='store_true',
-                    help='use float16 instead of float32, which will save about 50% memory')
+parser.add_argument('--LSTM', action='store_true', help='use LSTM')
+parser.add_argument('--GGNN', action='store_true', help='use GGNN')
+parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory')
 opt = parser.parse_args()
 
 fp16 = opt.fp16
@@ -180,7 +176,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)  # Set model to training mode
-                # model.model.train(False)
+                if opt.LSTM or opt.GGNN:
+                    model.model.train(False)
             else:
                 model.train(False)  # Set model to evaluate mode
 
@@ -214,7 +211,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     outputs = model(inputs)
 
-                if not opt.PCB or opt.LSTM:
+                if not opt.multi_loss:
+                # if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
                     loss = criterion(outputs, labels)
                 else:
@@ -233,17 +231,17 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     for i in range(num_part-1):
                         loss += criterion(part[i+1], labels)
 
-                    for i in range(num_part-1):
-                        loss += criterion(outputs[num_part+i], labels)
+                    # for i in range(num_part-1):
+                    #     loss += criterion(outputs[num_part+i], labels)
 
-                    for i in range(num_part-2):
-                        loss + criterion(outputs[2*num_part+i-1], labels)
+                    # for i in range(num_part-2):
+                    #     loss + criterion(outputs[2*num_part+i-1], labels)
 
-                    for i in range(num_part-3):
-                        loss + criterion(outputs[3*num_part+i-3], labels)
+                    # for i in range(num_part-3):
+                    #     loss + criterion(outputs[3*num_part+i-3], labels)
 
-                    for i in range(5):
-                        loss += criterion(outputs[10+i], labels)
+                    # for i in range(5):
+                    #     loss += criterion(outputs[10+i], labels)
 
                 # backward + optimize only if in training phase
                 if epoch < opt.warm_epoch and phase == 'train':
@@ -280,7 +278,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             if phase == 'val':
                 last_model_wts = model.state_dict()
                 if epoch % 10 == 9:
-                    save_network(model, epoch)
+                    save_network(model, epoch+1)
                 draw_curve(epoch)
 
         time_elapsed = time.time() - since
@@ -317,7 +315,7 @@ def draw_curve(current_epoch):
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
-    fig.savefig(os.path.join('./model', name, 'train.jpg'))
+    fig.savefig(os.path.join('./logs', name, 'train.jpg'))
 
 ######################################################################
 # Save model
@@ -326,7 +324,7 @@ def draw_curve(current_epoch):
 
 def save_network(network, epoch_label):
     save_filename = 'net_%s.pth' % epoch_label
-    save_path = os.path.join('./model', name, save_filename)
+    save_path = os.path.join('./logs', name, save_filename)
     torch.save(network.cpu().state_dict(), save_path)
     if torch.cuda.is_available():
         network.cuda(gpu_ids[0])
@@ -337,7 +335,7 @@ def save_network(network, epoch_label):
 
 
 def load_network(network, model_name):
-    save_path = os.path.join('./model', model_name, 'net_last.pth')
+    save_path = os.path.join('./logs', model_name, 'net_last.pth')
     network.load_state_dict(torch.load(save_path))
     return network
 
@@ -361,16 +359,17 @@ else:
 if opt.PCB:
     model = PCB_Effi(opt.nclasses)
 
-if opt.PCB and opt.LSTM:
-    model_name = 'PCB_Effi'
+if opt.PCB and (opt.LSTM or opt.GGNN):
+    model_name = 'PCB_Effi_NL'
     model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model)
-    # model_name = 'LSTM'
+    model = PCB_Effi_LSTM(model) if opt.LSTM else PCB_Effi_GGNN(model)
+    # model_name = 'LSTM' or 'GGNN'
     # model = load_network(model, model_name)
 
 print(model)
 
-if not opt.PCB or opt.LSTM:
+if not opt.multi_loss:
+# if not opt.PCB:
     ignored_params = list(map(id, model.model._fc.parameters()))
     ignored_params += (list(map(id, model.classifier.parameters()))
                        + list(map(id, model.model.parameters()))
@@ -389,21 +388,23 @@ else:
                        + list(map(id, model.classifierA2.parameters()))
                        + list(map(id, model.classifierA3.parameters()))
 
-                        +list(map(id, model.classifierB0.parameters() ))
-                        +list(map(id, model.classifierB1.parameters() ))
-                        +list(map(id, model.classifierB2.parameters() ))
+                        # +list(map(id, model.classifierB0.parameters() ))
+                        # +list(map(id, model.classifierB1.parameters() ))
+                        # +list(map(id, model.classifierB2.parameters() ))
 
-                        +list(map(id, model.classifierC0.parameters() ))
-                        +list(map(id, model.classifierC1.parameters() ))
+                        # +list(map(id, model.classifierC0.parameters() ))
+                        # +list(map(id, model.classifierC1.parameters() ))
 
-                        +list(map(id, model.classifierD0.parameters() ))
+                        # +list(map(id, model.classifierD0.parameters() ))
 
-                        +list(map(id, model.classifierB3.parameters() ))
-                        +list(map(id, model.classifierB4.parameters() ))
-                        +list(map(id, model.classifierB5.parameters() ))
+                        # +list(map(id, model.classifierB3.parameters() ))
+                        # +list(map(id, model.classifierB4.parameters() ))
+                        # +list(map(id, model.classifierB5.parameters() ))
 
-                        +list(map(id, model.classifierC2.parameters() ))
-                        +list(map(id, model.classifierC3.parameters() ))
+                        # +list(map(id, model.classifierC2.parameters() ))
+                        # +list(map(id, model.classifierC3.parameters() ))
+
+                        # +list(map(id, model.model.parameters()))
 
                        #  +list(map(id, model.classifier4.parameters() ))
                        #  +list(map(id, model.classifier5.parameters() ))
@@ -421,21 +422,21 @@ else:
         {'params': model.classifierA2.parameters(), 'lr': opt.lr},
         {'params': model.classifierA3.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB1.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB2.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB1.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB2.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC1.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC1.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierD0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierD0.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB3.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB4.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB5.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB3.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB4.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB5.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC2.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC3.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC2.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
         #  {'params': model.classifier4.parameters(), 'lr': opt.lr},
         #  {'params': model.classifier5.parameters(), 'lr': opt.lr},
@@ -452,12 +453,16 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 #
 # It should take around 1-2 hours on GPU.
 #
-dir_name = os.path.join('./model', name)
+dir_name = os.path.join('./logs', name)
 if not os.path.isdir(dir_name):
     os.mkdir(dir_name)
 # record every run
 copyfile('./train.py', dir_name+'/train.py')
-copyfile('./model.py', dir_name+'/model.py')
+copyfile('models/base_model.py', dir_name+'/base_model.py')
+if opt.LSTM:
+    copyfile('models/lstm_model.py', dir_name+'/lstm_model.py')
+if opt.GGNN:
+    copyfile('models/ggnn_model.py', dir_name+'/ggnn_model.py')
 
 # save opts
 with open('%s/opts.yaml' % dir_name, 'w') as fp:
