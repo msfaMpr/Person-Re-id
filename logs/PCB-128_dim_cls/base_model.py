@@ -268,7 +268,7 @@ class PCB_Effi(nn.Module):
         for i in range(self.part):
             name = 'classifierA'+str(i)
             setattr(self, name, ClassBlock(self.feature_dim, self.class_num, droprate=0.5,
-                                           relu=False, bnorm=True, num_bottleneck=64))
+                                           relu=False, bnorm=True, num_bottleneck=128))
 
         # for i in range(self.part-1):
         #     name = 'classifierB'+str(i)
