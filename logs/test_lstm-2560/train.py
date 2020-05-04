@@ -18,6 +18,7 @@ import time
 import os
 from models.base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_Effi
 from models.lstm_model import PCB_Effi_LSTM
+from models.ggnn_model import PCB_Effi_GGNN
 from random_erasing import RandomErasing
 import yaml
 import math
@@ -34,30 +35,24 @@ except ImportError:  # will be 3.x series
 # Options
 # --------
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu_ids', default='0', type=str,
-                    help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--name', default='ft_ResNet50',
-                    type=str, help='output model name')
-parser.add_argument('--data_dir', default='../Market/pytorch',
-                    type=str, help='training dir path')
-parser.add_argument('--train_all', action='store_true',
-                    help='use all training data')
-parser.add_argument('--color_jitter', action='store_true',
-                    help='use color jitter in training')
+parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
+parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
+parser.add_argument('--train_all', action='store_true', help='use all training data')
+parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--erasing_p', default=0.50, type=float,
-                    help='Random Erasing probability, in [0,1]')
+parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NAS')
-parser.add_argument('--warm_epoch', default=0, type=int,
-                    help='the first K epoch that needs warm up')
+parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
 parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
+parser.add_argument('--multi_loss', action='store_true', help='use muliple loss')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
-parser.add_argument('--LSTM', action='store_true', help='use PCB+LSTM')
-parser.add_argument('--fp16', action='store_true',
-                    help='use float16 instead of float32, which will save about 50% memory')
+parser.add_argument('--LSTM', action='store_true', help='use LSTM')
+parser.add_argument('--GGNN', action='store_true', help='use GGNN')
+parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory')
 opt = parser.parse_args()
 
 fp16 = opt.fp16
@@ -181,7 +176,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)  # Set model to training mode
-                if opt.LSTM:
+                if opt.LSTM or opt.GGNN:
                     model.model.train(False)
             else:
                 model.train(False)  # Set model to evaluate mode
@@ -216,8 +211,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     outputs = model(inputs)
 
-                # if not opt.PCB or opt.LSTM:
-                if not opt.PCB:
+                if not opt.multi_loss:
+                # if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
                     loss = criterion(outputs, labels)
                 else:
@@ -364,17 +359,17 @@ else:
 if opt.PCB:
     model = PCB_Effi(opt.nclasses)
 
-if opt.PCB and opt.LSTM:
+if opt.PCB and (opt.LSTM or opt.GGNN):
     model_name = 'PCB_Effi_NL'
     model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model)
-    # model_name = 'LSTM'
+    model = PCB_Effi_LSTM(model) if opt.LSTM else PCB_Effi_GGNN(model)
+    # model_name = 'LSTM' or 'GGNN'
     # model = load_network(model, model_name)
 
 print(model)
 
-# if not opt.PCB or opt.LSTM:
-if not opt.PCB:
+if not opt.multi_loss:
+# if not opt.PCB:
     ignored_params = list(map(id, model.model._fc.parameters()))
     ignored_params += (list(map(id, model.classifier.parameters()))
                        + list(map(id, model.model.parameters()))
@@ -408,6 +403,8 @@ else:
 
                         +list(map(id, model.classifierC2.parameters() ))
                         +list(map(id, model.classifierC3.parameters() ))
+
+                        +list(map(id, model.model.parameters()))
 
                        #  +list(map(id, model.classifier4.parameters() ))
                        #  +list(map(id, model.classifier5.parameters() ))
@@ -462,8 +459,10 @@ if not os.path.isdir(dir_name):
 # record every run
 copyfile('./train.py', dir_name+'/train.py')
 copyfile('models/base_model.py', dir_name+'/base_model.py')
-copyfile('models/lstm_model.py', dir_name+'/lstm_model.py')
-copyfile('models/ggnn_model.py', dir_name+'/ggnn_model.py')
+if opt.LSTM:
+    copyfile('models/lstm_model.py', dir_name+'/lstm_model.py')
+if opt.GGNN:
+    copyfile('models/ggnn_model.py', dir_name+'/ggnn_model.py')
 
 # save opts
 with open('%s/opts.yaml' % dir_name, 'w') as fp:

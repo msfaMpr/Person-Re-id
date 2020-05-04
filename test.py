@@ -20,6 +20,7 @@ import yaml
 import math
 from models.base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test, PCB_Effi, PCB_Effi_test
 from models.lstm_model import PCB_Effi_LSTM, PCB_Effi_LSTM_test
+from models.ggnn_model import PCB_Effi_GGNN, PCB_Effi_GGNN_test
 
 #fp16
 try:
@@ -36,11 +37,12 @@ parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or
 parser.add_argument('--test_dir',default='../Market/pytorch',type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
-parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
+parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
-parser.add_argument('--LSTM', action='store_true', help='use LSTM' )
-parser.add_argument('--multi', action='store_true', help='use multiple query' )
-parser.add_argument('--fp16', action='store_true', help='use fp16.' )
+parser.add_argument('--LSTM', action='store_true', help='use LSTM')
+parser.add_argument('--GGNN', action='store_true', help='use GGNN')
+parser.add_argument('--multi', action='store_true', help='use multiple query')
+parser.add_argument('--fp16', action='store_true', help='use fp16.')
 parser.add_argument('--ms',default='1', type=str,help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
 
 opt = parser.parse_args()
@@ -50,8 +52,9 @@ config_path = os.path.join('./logs',opt.name,'opts.yaml')
 with open(config_path, 'r') as stream:
         config = yaml.load(stream)
 opt.fp16 = config['fp16'] 
-opt.PCB = config['PCB']
-# opt.LSTM = config['LSTM']
+opt.PCB = config['PCB'] if opt.PCB else False
+opt.LSTM = config['LSTM'] if opt.LSTM else False
+opt.GGNN = config['GGNN'] if opt.GGNN else False
 opt.use_dense = config['use_dense']
 opt.use_NAS = config['use_NAS']
 opt.stride = config['stride']
@@ -156,10 +159,12 @@ def extract_feature(model,dataloaders):
         # count += n
         # print(count)
         ff = torch.FloatTensor(n, 512).zero_().cuda()
-        if opt.PCB:
+        if opt.PCB and not opt.LSTM and not opt.GGNN:
             ff = torch.FloatTensor(n, 1280, 4).zero_().cuda() # we have six parts
         if opt.LSTM:
-            ff = torch.FloatTensor(n, 640, 4).zero_().cuda()
+            ff = torch.FloatTensor(n, 2560, 4).zero_().cuda()
+        if opt.GGNN:
+            ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
 
         for i in range(2):
             if(i==1):
@@ -228,21 +233,24 @@ if opt.PCB:
 if opt.LSTM:
     model_structure = PCB_Effi_LSTM(model_structure)
 
+if opt.GGNN:
+    model_structure = PCB_Effi_GGNN(model_structure)
+
 #if opt.fp16:
 #    model_structure = network_to_half(model_structure)
 
 model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
-
-if opt.LSTM:
-    model = PCB_Effi_LSTM_test(model)
-
-elif opt.PCB and not opt.LSTM:
+if opt.PCB and not opt.LSTM and not opt.GGNN:
     #if opt.fp16:
     #    model = PCB_test(model[1])
     #else:
         model = PCB_Effi_test(model)
+elif opt.LSTM:
+    model = PCB_Effi_LSTM_test(model)
+elif opt.GGNN:
+    model = PCB_Effi_GGNN_test(model)
 else:
     #if opt.fp16:
         #model[1].model.fc = nn.Sequential()

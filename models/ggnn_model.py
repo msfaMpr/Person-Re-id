@@ -8,10 +8,10 @@ from torch.autograd import Variable
 from .base_model import *
 
 
-class EfficientGGNN(nn.Module):
+class PCB_Effi_GGNN(nn.Module):
 
     def __init__(self, model):
-        super(EfficientGGNN, self).__init__()
+        super(PCB_Effi_GGNN, self).__init__()
 
         self.part = model.part  # We cut the pool5 to 6 parts
         self.model = model.model
@@ -54,6 +54,8 @@ class EfficientGGNN(nn.Module):
             nn.Linear(self.state_dim, self.state_dim)
         )
 
+        self._initialization()
+
         # # define 4 classifiers
         # for i in range(self.part):
         #     name = 'classifier'+str(i)
@@ -63,8 +65,6 @@ class EfficientGGNN(nn.Module):
         self.classifier = ClassBlock(self.part*1280, model.class_num, droprate=0.5,
                                         relu=False, bnorm=True, num_bottleneck=256)
 
-        self._initialization()
-
     def _initialization(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -72,10 +72,11 @@ class EfficientGGNN(nn.Module):
                 m.bias.data.fill_(0)
 
     def forward(self, x):
-        x = self.model.extract_features(x)
-        x = self.avgpool(x)  # b*1280*4*1
-        x = self.dropout(x)
-        x = x.squeeze()  # b*1280*4
+        with torch.no_grad():
+            x = self.model.extract_features(x)
+            x = self.avgpool(x)  # b*1280*4*1
+            x = self.dropout(x)
+            x = x.squeeze()  # b*1280*4
 
         # Gated Graph Neural Network
         x = torch.transpose(x, 1, 2)  # b*4*1280
@@ -116,9 +117,9 @@ class EfficientGGNN(nn.Module):
         return y
 
 
-class EfficientGGNN_test(nn.Module):
+class PCB_Effi_GGNN_test(nn.Module):
     def __init__(self, model):
-        super(EfficientGGNN_test, self).__init__()
+        super(PCB_Effi_GGNN_test, self).__init__()
         self.part = model.part
         self.model = model.model
         self.avgpool = model.avgpool
