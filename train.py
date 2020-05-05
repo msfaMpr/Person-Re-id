@@ -483,4 +483,4 @@ model = model.cuda()
 criterion = nn.CrossEntropyLoss()
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=30)
+                                                            num_epochs=30)
