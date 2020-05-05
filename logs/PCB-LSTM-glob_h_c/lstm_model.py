@@ -74,8 +74,8 @@ class PCB_Effi_LSTM(nn.Module):
 
         batchSize, seq_len = x.size(0), x.size(2)
 
-        h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        # h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
+        h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
         # c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
         c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
 
@@ -174,8 +174,8 @@ class PCB_Effi_LSTM_test(nn.Module):
 
         batchSize, seq_len = x.size(0), x.size(2)
 
-        h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        # h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
+        h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
         # c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
         c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
 

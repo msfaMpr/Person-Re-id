@@ -162,7 +162,7 @@ def extract_feature(model,dataloaders):
         if opt.PCB and not opt.LSTM and not opt.GGNN:
             ff = torch.FloatTensor(n, 1280, 4).zero_().cuda() # we have six parts
         if opt.LSTM:
-            ff = torch.FloatTensor(n, 2560, 4).zero_().cuda()
+            ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
         if opt.GGNN:
             ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
 

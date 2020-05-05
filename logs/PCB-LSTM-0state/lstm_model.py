@@ -19,9 +19,6 @@ class PCB_Effi_LSTM(nn.Module):
         self.dropout = nn.Dropout(p=0.5)
         self.feature_dim = model.feature_dim
 
-        self.glob_avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.glob_dropout = nn.Dropout(p=0.5)
-
         self.hiddenDim = self.feature_dim // 2
 
         self.lstm = nn.LSTM(self.feature_dim, self.hiddenDim, bidirectional=True)
@@ -63,11 +60,6 @@ class PCB_Effi_LSTM(nn.Module):
     def forward(self, x):
         with torch.no_grad():
             x = self.model.extract_features(x)
-
-            gx = self.glob_avgpool(x)
-            gx = self.glob_dropout(gx)
-            gx = gx.squeeze()
-
             x = self.avgpool(x)
             x = self.dropout(x)
             x = x.squeeze()
@@ -75,9 +67,7 @@ class PCB_Effi_LSTM(nn.Module):
         batchSize, seq_len = x.size(0), x.size(2)
 
         h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
-        # c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
 
         x = x.transpose(2, 1)  # bxpx1280
         x = x.transpose(1, 0)  # pxbx1280
@@ -156,8 +146,6 @@ class PCB_Effi_LSTM_test(nn.Module):
         self.part = model.part
         self.model = model.model
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
-        
-        self.glob_avgpool = model.glob_avgpool
 
         self.hiddenDim = model.hiddenDim
         self.lstm = model.lstm
@@ -165,19 +153,13 @@ class PCB_Effi_LSTM_test(nn.Module):
 
     def forward(self, x):
         x = self.model.extract_features(x)
-
-        gx = self.glob_avgpool(x)
-        gx = gx.squeeze()
-
         x = self.avgpool(x)
         x = x.squeeze()
 
         batchSize, seq_len = x.size(0), x.size(2)
 
         h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
-        # c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
 
         x = x.transpose(2, 1)  # bxpx1280
         x = x.transpose(1, 0)  # pxbx1280
