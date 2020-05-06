@@ -233,16 +233,16 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     num_part = 4
 
                     for i in range(num_part):
-                        part[i] = outputs[i]
+                        part[i] = outputs['PCB'][i]
 
                     score = sm(part[0]) + sm(part[1]) + \
                                             sm(part[2]) + sm(part[3])
 
                     _, preds = torch.max(score.data, 1)
 
-                    loss = criterion(part[0], labels)
-                    for i in range(num_part-1):
-                        loss += criterion(part[i+1], labels)
+                    loss = criterion(outputs['LSTM'], labels)
+                    for i in range(num_part):
+                        loss += criterion(part[i], labels)
 
                     # for i in range(num_part-1):
                     #     loss += criterion(outputs[num_part+i], labels)
@@ -370,8 +370,8 @@ if opt.PCB:
     model = PCB_Effi(opt.nclasses)
 
 if opt.LSTM:
-    model_name = 'PCB-128_dim_cls'
-    model = load_network(model, model_name)
+    # model_name = 'PCB-128_dim_cls'
+    # model = load_network(model, model_name)
     model = PCB_Effi_LSTM(model, opt.train_backbone)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
@@ -379,7 +379,7 @@ if opt.LSTM:
 if opt.GGNN:
     model_name = 'PCB-128_dim_cls'
     model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model, opt.train_backbone)
+    model = PCB_Effi_GGNN(model, opt.train_backbone)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
@@ -421,6 +421,7 @@ else:
                        # +list(map(id, model.classifierC2.parameters() ))
                        # +list(map(id, model.classifierC3.parameters() ))
 
+                       +list(map(id, model.classifier.parameters()))
                        # +list(map(id, model.model.parameters()))
 
                        #  +list(map(id, model.classifier4.parameters() ))
@@ -458,6 +459,8 @@ else:
         #  {'params': model.classifierC2.parameters(), 'lr': opt.lr},
         #  {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
+         {'params': model.classifier.parameters(), 'lr': opt.lr},
+
         #  {'params': model.classifier4.parameters(), 'lr': opt.lr},
         #  {'params': model.classifier5.parameters(), 'lr': opt.lr},
         #{'params': model.classifier6.parameters(), 'lr': 0.01},
@@ -493,5 +496,4 @@ model = model.cuda()
 
 criterion = nn.CrossEntropyLoss()
 
-model = train_model(model, criterion, optimizer, exp_lr_scheduler,
-                                                            num_epochs=30)
+model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs=50)

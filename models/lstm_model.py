@@ -23,18 +23,15 @@ class PCB_Effi_LSTM(nn.Module):
         # self.glob_dropout = nn.Dropout(p=0.5)
 
         self.hiddenDim = self.feature_dim // 2
-        self.lstm = nn.LSTM(self.feature_dim, self.hiddenDim,
-                                                bidirectional=True)
+        self.lstm = nn.LSTM(self.feature_dim, self.hiddenDim, bidirectional=True)
 
-        self.classifier = ClassBlock(self.part*self.feature_dim,
-                                        self.class_num, droprate=0.5,
-                                                relu=False, bnorm=True,
-                                                    num_bottleneck=256)
+        self.classifier = ClassBlock(self.part * self.feature_dim, self.class_num,
+                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256)
 
-        # for i in range(self.part):
-        #     name = 'classifierA'+str(i)
-        #     setattr(self, name, ClassBlock(2*self.hiddenDim, self.class_num,
-        #                                    droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+        for i in range(self.part):
+            name = 'classifierA'+str(i)
+            setattr(self, name, ClassBlock(2 * self.hiddenDim, self.class_num,
+                                           droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-1):
         #     name = 'classifierB'+str(i)
@@ -84,25 +81,26 @@ class PCB_Effi_LSTM(nn.Module):
         # c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
 
         x = x.transpose(2, 1)  # bxpx1280
-        x = x.transpose(1, 0)  # pxbx1280
 
-        x, hn = self.lstm(x, (h0, c0))
+        lx = x.transpose(1, 0)  # pxbx1280
+        lx, hn = self.lstm(lx, (h0, c0))
+        lx = lx.transpose(1, 0)  # bxpxh
+        lx = torch.flatten(lx, 1)
 
-        x = x.transpose(1, 0)  # bxpxh
-        x = torch.flatten(x, 1)
-        y = self.classifier(x)
+        y = {}
+        y['LSTM'] = self.classifier(lx)
 
-        # partA, partB, partC, partD = {}, {}, {}, {}
-        # predictA, predictB, predictC, predictD = {}, {}, {}, {}
-        # y = []
-        # # get six part feature batchsize*1280*4
+        partA, partB, partC, partD = {}, {}, {}, {}
+        predictA, predictB, predictC, predictD = {}, {}, {}, {}
+        y['PCB'] = []
+        # get six part feature batchsize*1280*4
 
-        # for i in range(self.part):
-        #     partA[i] = torch.flatten(x[:, i:i+1, :], 1)
-        #     name = 'classifierA'+str(i)
-        #     c = getattr(self, name)
-        #     predictA[i] = c(partA[i])
-        #     y.append(predictA[i])
+        for i in range(self.part):
+            partA[i] = torch.flatten(x[:, i:i+1, :], 1)
+            name = 'classifierA'+str(i)
+            c = getattr(self, name)
+            predictA[i] = c(partA[i])
+            y['PCB'].append(predictA[i])
 
         # for i in range(self.part-1):
         #     partB[i] = torch.flatten(x[:, i:i+2, :], 1)
