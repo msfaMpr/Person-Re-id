@@ -68,115 +68,6 @@ class ClassBlock(nn.Module):
             x = self.classifier(x)
             return x
 
-# Define the ResNet50-based Model
-
-
-class ft_net(nn.Module):
-
-    def __init__(self, class_num, droprate=0.5, stride=2):
-        super(ft_net, self).__init__()
-        model_ft = models.resnet50(pretrained=True)
-        # avg pooling to global pooling
-        if stride == 1:
-            model_ft.layer4[0].downsample[0].stride = (1, 1)
-            model_ft.layer4[0].conv2.stride = (1, 1)
-        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.model = model_ft
-        self.classifier = ClassBlock(2048, class_num, droprate)
-
-    def forward(self, x):
-        x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
-        x = self.model.maxpool(x)
-        x = self.model.layer1(x)
-        x = self.model.layer2(x)
-        x = self.model.layer3(x)
-        x = self.model.layer4(x)
-        x = self.model.avgpool(x)
-        x = x.view(x.size(0), x.size(1))
-        x = self.classifier(x)
-        return x
-
-# Define the DenseNet121-based Model
-
-
-class ft_net_dense(nn.Module):
-
-    def __init__(self, class_num, droprate=0.5):
-        super().__init__()
-        model_ft = models.densenet121(pretrained=True)
-        model_ft.features.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        model_ft.fc = nn.Sequential()
-        self.model = model_ft
-        # For DenseNet, the feature dim is 1024
-        self.classifier = ClassBlock(1024, class_num, droprate)
-
-    def forward(self, x):
-        x = self.model.features(x)
-        x = x.view(x.size(0), x.size(1))
-        x = self.classifier(x)
-        return x
-
-# Define the NAS-based Model
-
-
-class ft_net_NAS(nn.Module):
-
-    def __init__(self, class_num, droprate=0.5):
-        super().__init__()
-        model_name = 'nasnetalarge'
-        # pip install pretrainedmodels
-        model_ft = pretrainedmodels.__dict__[model_name](
-            num_classes=1000, pretrained='imagenet')
-        model_ft.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        model_ft.dropout = nn.Sequential()
-        model_ft.last_linear = nn.Sequential()
-        self.model = model_ft
-        # For DenseNet, the feature dim is 4032
-        self.classifier = ClassBlock(4032, class_num, droprate)
-
-    def forward(self, x):
-        x = self.model.features(x)
-        x = self.model.avg_pool(x)
-        x = x.view(x.size(0), x.size(1))
-        x = self.classifier(x)
-        return x
-
-# Define the ResNet50-based Model (Middle-Concat)
-# In the spirit of "The Devil is in the Middle: Exploiting Mid-level Representations for Cross-Domain Instance Matching." Yu, Qian, et al. arXiv:1711.08106 (2017).
-
-
-class ft_net_middle(nn.Module):
-
-    def __init__(self, class_num, droprate=0.5):
-        super(ft_net_middle, self).__init__()
-        model_ft = models.resnet50(pretrained=True)
-        # avg pooling to global pooling
-        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.model = model_ft
-        self.classifier = ClassBlock(2048+1024, class_num, droprate)
-
-    def forward(self, x):
-        x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
-        x = self.model.maxpool(x)
-        x = self.model.layer1(x)
-        x = self.model.layer2(x)
-        x = self.model.layer3(x)
-        # x0  n*1024*1*1
-        x0 = self.model.avgpool(x)
-        x = self.model.layer4(x)
-        # x1  n*2048*1*1
-        x1 = self.model.avgpool(x)
-        x = torch.cat((x0, x1), 1)
-        x = x.view(x.size(0), x.size(1))
-        x = self.classifier(x)
-        return x
-
-# Part Model proposed in Yifan Sun etal. (2018)
-
 
 class PCB(nn.Module):
     def __init__(self, class_num):
@@ -279,6 +170,7 @@ class PCB_Effi(nn.Module):
         #     setattr(self, name, ClassBlock(2*1280, self.class_num, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-2):
+
         #     name = 'classifierC'+str(i)
         #     setattr(self, name, ClassBlock(3*1280, self.class_num, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
@@ -370,70 +262,6 @@ class PCB_Effi_test(nn.Module):
         x = self.avgpool(x)
         y = x.view(x.size(0), x.size(1), x.size(2))
         return y
-
-
-def create_adjacency_matrix(edges, n_nodes, n_edge_types):
-    a = np.zeros([n_nodes, n_nodes * n_edge_types * 2])
-    for edge in edges:
-        src_idx = edge[0]
-        e_type = edge[1]
-        tgt_idx = edge[2]
-        a[tgt_idx-1][(e_type - 1) * n_nodes + src_idx - 1] = 1
-        a[src_idx-1][(e_type - 1 + n_edge_types) * n_nodes + tgt_idx - 1] = 1
-    return a
-
-
-class AttrProxy(object):
-
-    def __init__(self, module, prefix):
-        self.module = module
-        self.prefix = prefix
-
-    def __getitem__(self, i):
-        return getattr(self.module, self.prefix + str(i))
-
-
-class Propogator(nn.Module):
-    """
-    Gated Propogator for GGNN
-    Using LSTM gating mechanism
-    """
-
-    def __init__(self, state_dim, n_node, n_edge_types):
-        super(Propogator, self).__init__()
-
-        self.n_node = n_node
-        self.n_edge_types = n_edge_types
-
-        self.reset_gate = nn.Sequential(
-            nn.Linear(state_dim*3, state_dim),
-            nn.Sigmoid()
-        )
-        self.update_gate = nn.Sequential(
-            nn.Linear(state_dim*3, state_dim),
-            nn.Sigmoid()
-        )
-        self.tansform = nn.Sequential(
-            nn.Linear(state_dim*3, state_dim),
-            nn.Tanh()
-        )
-
-    def forward(self, state_in, state_out, state_cur, A):
-        A_in = A[:, :, :self.n_node*self.n_edge_types]
-        A_out = A[:, :, self.n_node*self.n_edge_types:]
-
-        a_in = torch.bmm(A_in, state_in)
-        a_out = torch.bmm(A_out, state_out)
-        a = torch.cat((a_in, a_out, state_cur), 2)
-
-        r = self.reset_gate(a)
-        z = self.update_gate(a)
-        joined_input = torch.cat((a_in, a_out, r * state_cur), 2)
-        h_hat = self.tansform(joined_input)
-
-        output = (1 - z) * state_cur + z * h_hat
-
-        return output
 
 
 '''

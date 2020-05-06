@@ -58,6 +58,8 @@ parser.add_argument('--multi_loss', action='store_true',
 parser.add_argument('--PCB', action='store_true', help='use PCB')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
+parser.add_argument('--train_backbone', action='store_true',
+                                        help='train backbone network')
 
 opt = parser.parse_args()
 
@@ -177,7 +179,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
     warm_up = 0.1  # We start from the 0.1*lrRate
     warm_iteration = round(
-        dataset_sizes['train']/opt.batchsize)*opt.warm_epoch  # first 5 epoch
+        dataset_sizes['train'] / opt.batchsize)*opt.warm_epoch  # first 5 epoch
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch + 1, num_epochs))
@@ -187,7 +189,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)  # Set model to training mode
-                if opt.LSTM or opt.GGNN:
+                if not opt.train_backbone:
                     model.model.train(False)
             else:
                 model.train(False)  # Set model to evaluate mode
@@ -367,25 +369,31 @@ else:
 if opt.PCB:
     model = PCB_Effi(opt.nclasses)
 
-if opt.PCB and (opt.LSTM or opt.GGNN):
+if opt.LSTM:
     model_name = 'PCB-128_dim_cls'
     model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model) if opt.LSTM else PCB_Effi_GGNN(model)
-    # model_name = 'LSTM' or 'GGNN'
+    model = PCB_Effi_LSTM(model, opt.train_backbone)
+    # model_name = 'LSTM'
+    # model = load_network(model, model_name)
+
+if opt.GGNN:
+    model_name = 'PCB-128_dim_cls'
+    model = load_network(model, model_name)
+    model = PCB_Effi_LSTM(model, opt.train_backbone)
+    # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 print(model)
 
 if not opt.multi_loss:
     ignored_params = list(map(id, model.model._fc.parameters()))
-    ignored_params += (
-                         list(map(id, model.classifier.parameters()))
-                       + list(map(id, model.model.parameters()))
-                       )
+    ignored_params += (list(map(id, model.classifier.parameters())))
+    if not opt.train_backbone:
+        ignored_params += (list(map(id, model.model.parameters())))
     base_params = filter(
                     lambda p: id(p) not in ignored_params, model.parameters()
-                        )
-    optimizer_ft = optim.SGD(
+                            )
+    optimizer = optim.SGD(
                     [{'params': base_params, 'lr': 0.1*opt.lr},
                      {'params': model.classifier.parameters(), 'lr': opt.lr}],
                         weight_decay=5e-4, momentum=0.9, nesterov=True)
@@ -420,10 +428,12 @@ else:
                        #+list(map(id, model.classifier6.parameters() ))
                        #+list(map(id, model.classifier7.parameters() ))
                        )
+    if not opt.train_backbone:
+        ignored_params += (list(map(id, model.model.parameters())))
     base_params = filter(
                     lambda p: id(p) not in ignored_params, model.parameters()
-                        )
-    optimizer_ft = optim.SGD([
+                            )
+    optimizer = optim.SGD([
         {'params': base_params, 'lr': 0.1*opt.lr},
         #  {'params': model.model._fc.parameters(), 'lr': opt.lr},
 
@@ -452,10 +462,10 @@ else:
         #  {'params': model.classifier5.parameters(), 'lr': opt.lr},
         #{'params': model.classifier6.parameters(), 'lr': 0.01},
         #{'params': model.classifier7.parameters(), 'lr': 0.01}
-    ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+                        ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1)
 
 
 ######################################################################
@@ -483,5 +493,5 @@ model = model.cuda()
 
 criterion = nn.CrossEntropyLoss()
 
-model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
+model = train_model(model, criterion, optimizer, exp_lr_scheduler,
                                                             num_epochs=30)
