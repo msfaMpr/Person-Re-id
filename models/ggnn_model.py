@@ -5,7 +5,71 @@ from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
 
-from .base_model import *
+from .base_model import ClassBlock
+
+
+def create_adjacency_matrix(edges, n_nodes, n_edge_types):
+    a = np.zeros([n_nodes, n_nodes * n_edge_types * 2])
+    for edge in edges:
+        src_idx = edge[0]
+        e_type = edge[1]
+        tgt_idx = edge[2]
+        a[tgt_idx-1][(e_type - 1) * n_nodes + src_idx - 1] = 1
+        a[src_idx-1][(e_type - 1 + n_edge_types) * n_nodes + tgt_idx - 1] = 1
+    return a
+
+
+class AttrProxy(object):
+
+    def __init__(self, module, prefix):
+        self.module = module
+        self.prefix = prefix
+
+    def __getitem__(self, i):
+        return getattr(self.module, self.prefix + str(i))
+
+
+class Propogator(nn.Module):
+    """
+    Gated Propogator for GGNN
+    Using LSTM gating mechanism
+    """
+
+    def __init__(self, state_dim, n_node, n_edge_types):
+        super(Propogator, self).__init__()
+
+        self.n_node = n_node
+        self.n_edge_types = n_edge_types
+
+        self.reset_gate = nn.Sequential(
+            nn.Linear(state_dim*3, state_dim),
+            nn.Sigmoid()
+        )
+        self.update_gate = nn.Sequential(
+            nn.Linear(state_dim*3, state_dim),
+            nn.Sigmoid()
+        )
+        self.tansform = nn.Sequential(
+            nn.Linear(state_dim*3, state_dim),
+            nn.Tanh()
+        )
+
+    def forward(self, state_in, state_out, state_cur, A):
+        A_in = A[:, :, :self.n_node*self.n_edge_types]
+        A_out = A[:, :, self.n_node*self.n_edge_types:]
+
+        a_in = torch.bmm(A_in, state_in)
+        a_out = torch.bmm(A_out, state_out)
+        a = torch.cat((a_in, a_out, state_cur), 2)
+
+        r = self.reset_gate(a)
+        z = self.update_gate(a)
+        joined_input = torch.cat((a_in, a_out, r * state_cur), 2)
+        h_hat = self.tansform(joined_input)
+
+        output = (1 - z) * state_cur + z * h_hat
+
+        return output
 
 
 class PCB_Effi_GGNN(nn.Module):
