@@ -22,11 +22,7 @@ from models.base_model import PCB, PCB_test, PCB_Effi, PCB_Effi_test
 from models.lstm_model import PCB_Effi_LSTM, PCB_Effi_LSTM_test
 from models.ggnn_model import PCB_Effi_GGNN, PCB_Effi_GGNN_test
 
-#fp16
-try:
-    from apex.fp16_utils import *
-except ImportError: # will be 3.x series
-    print('This is not an error. If you want to use low precision, i.e., fp16, please install the apex with cuda support (https://github.com/NVIDIA/apex) and update pytorch to 1.0')
+
 ######################################################################
 # Options
 # --------
@@ -45,6 +41,7 @@ parser.add_argument('--multi', action='store_true', help='use multiple query')
 parser.add_argument('--ms',default='1', type=str,help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
 
 opt = parser.parse_args()
+
 ###load config###
 # load the training config
 config_path = os.path.join('./logs',opt.name,'opts.yaml')
@@ -59,8 +56,8 @@ opt.stride = config['stride']
 
 if 'nclasses' in config: # tp compatible with old config files
     opt.nclasses = config['nclasses']
-else: 
-    opt.nclasses = 751 
+else:
+    opt.nclasses = 751
 
 str_ids = opt.gpu_ids.split(',')
 #which_epoch = opt.which_epoch
@@ -85,10 +82,12 @@ if len(gpu_ids)>0:
     torch.cuda.set_device(gpu_ids[0])
     cudnn.benchmark = True
 
+
 ######################################################################
 # Load Data
 # ---------
 #
+
 # We will use torchvision and torch.utils.data packages for loading the
 # data.
 #
@@ -96,10 +95,10 @@ data_transforms = transforms.Compose([
         transforms.Resize((256,128), interpolation=3),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-############### Ten Crop        
+############### Ten Crop
         #transforms.TenCrop(224),
         #transforms.Lambda(lambda crops: torch.stack(
-         #   [transforms.ToTensor()(crop) 
+         #   [transforms.ToTensor()(crop)
           #      for crop in crops]
            # )),
         #transforms.Lambda(lambda crops: torch.stack(
@@ -112,7 +111,7 @@ if opt.PCB:
     data_transforms = transforms.Compose([
         transforms.Resize((384,192), interpolation=3),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) 
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
 data_dir = test_dir
@@ -128,18 +127,23 @@ else:
 class_names = image_datasets['query'].classes
 use_gpu = torch.cuda.is_available()
 
+
 ######################################################################
 # Load model
-#---------------------------
+# --------
+#
+
 def load_network(network):
     save_path = os.path.join('./logs',name,'net_%s.pth'%opt.which_epoch)
     network.load_state_dict(torch.load(save_path))
     return network
 
+
 ######################################################################
 # Extract feature
-# ----------------------
+# --------
 #
+
 # Extract feature from  a trained model.
 #
 def fliplr(img):
@@ -172,7 +176,7 @@ def extract_feature(model,dataloaders):
                 if scale != 1:
                     # bicubic is only  available in pytorch>= 1.1
                     input_img = nn.functional.interpolate(input_img, scale_factor=scale, mode='bicubic', align_corners=False)
-                outputs = model(input_img) 
+                outputs = model(input_img)
                 ff += outputs
         # norm feature
 
@@ -180,7 +184,7 @@ def extract_feature(model,dataloaders):
             # feature size (n,2048,6)
             # 1. To treat every part equally, I calculate the norm for every 2048-dim part feature.
             # 2. To keep the cosine score==1, sqrt(6) is added to norm the whole feature (2048*6).
-            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6) 
+            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
             ff = ff.div(fnorm.expand_as(ff))
             ff = ff.view(ff.size(0), -1)
         else:
@@ -215,8 +219,12 @@ if opt.multi:
     mquery_path = image_datasets['multi-query'].imgs
     mquery_cam,mquery_label = get_id(mquery_path)
 
+
 ######################################################################
 # Load Collected data Trained model
+# --------
+#
+
 print('-------test-----------')
 
 if opt.PCB:
@@ -261,7 +269,7 @@ with torch.no_grad():
     query_feature = extract_feature(model,dataloaders['query'])
     if opt.multi:
         mquery_feature = extract_feature(model,dataloaders['multi-query'])
-    
+
 # Save to Matlab for check
 result = {'gallery_f':gallery_feature.numpy(),'gallery_label':gallery_label,'gallery_cam':gallery_cam,'query_f':query_feature.numpy(),'query_label':query_label,'query_cam':query_cam}
 scipy.io.savemat('pytorch_result.mat',result)

@@ -5,7 +5,7 @@ from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
 
-from .base_model import ClassBlock
+from base_model import ClassBlock
 
 
 class PCB_Effi_LSTM(nn.Module):

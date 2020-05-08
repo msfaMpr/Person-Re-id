@@ -5,7 +5,7 @@ from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
 
-from .base_model import ClassBlock
+from base_model import ClassBlock
 
 
 def create_adjacency_matrix(edges, n_nodes, n_edge_types):
