@@ -43,7 +43,7 @@ parser.add_argument('--train_all', action='store_true',
                     help='use all training data')
 parser.add_argument('--color_jitter', action='store_true',
                     help='use color jitter in training')
-parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=8, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--erasing_p', default=0.0, type=float,
                     help='Random Erasing probability, in [0,1]')
@@ -243,17 +243,17 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     for i in range(num_part):
                         loss += criterion(part[i], labels)
 
-                    for i in range(num_part-1):
-                        loss += criterion(outputs['PCB'][num_part+i], labels)
+                    # for i in range(num_part-1):
+                    #     loss += criterion(outputs[num_part+i], labels)
 
-                    for i in range(num_part-2):
-                        loss + criterion(outputs['PCB'][2*num_part+i-1], labels)
+                    # for i in range(num_part-2):
+                    #     loss + criterion(outputs[2*num_part+i-1], labels)
 
-                    for i in range(num_part-3):
-                        loss + criterion(outputs['PCB'][3*num_part+i-3], labels)
+                    # for i in range(num_part-3):
+                    #     loss + criterion(outputs[3*num_part+i-3], labels)
 
-                    for i in range(5):
-                        loss += criterion(outputs['PCB'][10+i], labels)
+                    # for i in range(5):
+                    #     loss += criterion(outputs[10+i], labels)
 
                 # backward + optimize only if in training phase
                 if epoch < opt.warm_epoch and phase == 'train':
@@ -397,21 +397,21 @@ else:
         + list(map(id, model.classifierA2.parameters()))
         + list(map(id, model.classifierA3.parameters()))
 
-        +list(map(id, model.classifierB0.parameters() ))
-        +list(map(id, model.classifierB1.parameters() ))
-        +list(map(id, model.classifierB2.parameters() ))
+        # +list(map(id, model.classifierB0.parameters() ))
+        # +list(map(id, model.classifierB1.parameters() ))
+        # +list(map(id, model.classifierB2.parameters() ))
 
-        +list(map(id, model.classifierC0.parameters() ))
-        +list(map(id, model.classifierC1.parameters() ))
+        # +list(map(id, model.classifierC0.parameters() ))
+        # +list(map(id, model.classifierC1.parameters() ))
 
-        +list(map(id, model.classifierD0.parameters() ))
+        # +list(map(id, model.classifierD0.parameters() ))
 
-        +list(map(id, model.classifierB3.parameters() ))
-        +list(map(id, model.classifierB4.parameters() ))
-        +list(map(id, model.classifierB5.parameters() ))
+        # +list(map(id, model.classifierB3.parameters() ))
+        # +list(map(id, model.classifierB4.parameters() ))
+        # +list(map(id, model.classifierB5.parameters() ))
 
-        +list(map(id, model.classifierC2.parameters() ))
-        +list(map(id, model.classifierC3.parameters() ))
+        # +list(map(id, model.classifierC2.parameters() ))
+        # +list(map(id, model.classifierC3.parameters() ))
 
         + list(map(id, model.classifier.parameters()))
 
@@ -434,21 +434,21 @@ else:
         {'params': model.classifierA2.parameters(), 'lr': opt.lr},
         {'params': model.classifierA3.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB1.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB2.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB1.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB2.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC1.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC1.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierD0.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierD0.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB3.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB4.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB5.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB3.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB4.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierB5.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC2.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC3.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC2.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
         {'params': model.classifier.parameters(), 'lr': opt.lr},
 

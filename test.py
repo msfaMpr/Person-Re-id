@@ -18,7 +18,7 @@ import os
 import scipy.io
 import yaml
 import math
-from models.base_model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test, PCB_Effi, PCB_Effi_test
+from models.base_model import PCB, PCB_test, PCB_Effi, PCB_Effi_test
 from models.lstm_model import PCB_Effi_LSTM, PCB_Effi_LSTM_test
 from models.ggnn_model import PCB_Effi_GGNN, PCB_Effi_GGNN_test
 
@@ -42,7 +42,6 @@ parser.add_argument('--PCB', action='store_true', help='use PCB' )
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
-parser.add_argument('--fp16', action='store_true', help='use fp16.')
 parser.add_argument('--ms',default='1', type=str,help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
 
 opt = parser.parse_args()
@@ -51,7 +50,6 @@ opt = parser.parse_args()
 config_path = os.path.join('./logs',opt.name,'opts.yaml')
 with open(config_path, 'r') as stream:
         config = yaml.load(stream)
-opt.fp16 = config['fp16'] 
 opt.PCB = config['PCB'] if opt.PCB else False
 opt.LSTM = config['LSTM'] if opt.LSTM else False
 opt.GGNN = config['GGNN'] if opt.GGNN else False
@@ -220,12 +218,6 @@ if opt.multi:
 ######################################################################
 # Load Collected data Trained model
 print('-------test-----------')
-if opt.use_dense:
-    model_structure = ft_net_dense(opt.nclasses)
-elif opt.use_NAS:
-    model_structure = ft_net_NAS(opt.nclasses)
-else:
-    model_structure = ft_net(opt.nclasses, stride = opt.stride)
 
 if opt.PCB:
     model_structure = PCB_Effi(opt.nclasses)
