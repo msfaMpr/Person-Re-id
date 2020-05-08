@@ -24,10 +24,11 @@ class PCB_Effi_LSTM(nn.Module):
         # self.glob_dropout = nn.Dropout(p=0.5)
 
         self.hiddenDim = self.feature_dim // 2
-        self.lstm = nn.LSTM(self.feature_dim, self.hiddenDim, bidirectional=True)
+        self.lstm = nn.LSTM(
+            self.feature_dim, self.hiddenDim, bidirectional=True)
 
         self.classifier = ClassBlock(self.part * self.feature_dim, self.class_num,
-                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256)
+                                     droprate=0.5, relu=False, bnorm=True, num_bottleneck=256)
 
         for i in range(self.part):
             name = 'classifierA'+str(i)

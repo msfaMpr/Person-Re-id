@@ -1,5 +1,14 @@
 from __future__ import print_function, division
 
+import torch.backends.cudnn as cudnn
+from torchvision import datasets, transforms
+from torch.autograd import Variable
+from torch.optim import lr_scheduler
+import torch.optim as optim
+import torch.nn as nn
+import torch
+import argparse
+import matplotlib.pyplot as plt
 from shutil import copyfile
 import math
 import yaml
@@ -11,15 +20,6 @@ import os
 import time
 import matplotlib
 matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import argparse
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
-from torch.autograd import Variable
-from torchvision import datasets, transforms
-import torch.backends.cudnn as cudnn
 
 #from PIL import Image
 
@@ -247,10 +247,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                         loss += criterion(outputs['PCB'][num_part+i], labels)
 
                     for i in range(num_part-2):
-                        loss + criterion(outputs['PCB'][2*num_part+i-1], labels)
+                        loss + criterion(outputs['PCB']
+                                         [2*num_part+i-1], labels)
 
                     for i in range(num_part-3):
-                        loss + criterion(outputs['PCB'][3*num_part+i-3], labels)
+                        loss + criterion(outputs['PCB']
+                                         [3*num_part+i-3], labels)
 
                     for i in range(5):
                         loss += criterion(outputs['PCB'][10+i], labels)
@@ -397,21 +399,21 @@ else:
         + list(map(id, model.classifierA2.parameters()))
         + list(map(id, model.classifierA3.parameters()))
 
-        +list(map(id, model.classifierB0.parameters() ))
-        +list(map(id, model.classifierB1.parameters() ))
-        +list(map(id, model.classifierB2.parameters() ))
+        + list(map(id, model.classifierB0.parameters()))
+        + list(map(id, model.classifierB1.parameters()))
+        + list(map(id, model.classifierB2.parameters()))
 
-        +list(map(id, model.classifierC0.parameters() ))
-        +list(map(id, model.classifierC1.parameters() ))
+        + list(map(id, model.classifierC0.parameters()))
+        + list(map(id, model.classifierC1.parameters()))
 
-        +list(map(id, model.classifierD0.parameters() ))
+        + list(map(id, model.classifierD0.parameters()))
 
-        +list(map(id, model.classifierB3.parameters() ))
-        +list(map(id, model.classifierB4.parameters() ))
-        +list(map(id, model.classifierB5.parameters() ))
+        + list(map(id, model.classifierB3.parameters()))
+        + list(map(id, model.classifierB4.parameters()))
+        + list(map(id, model.classifierB5.parameters()))
 
-        +list(map(id, model.classifierC2.parameters() ))
-        +list(map(id, model.classifierC3.parameters() ))
+        + list(map(id, model.classifierC2.parameters()))
+        + list(map(id, model.classifierC3.parameters()))
 
         + list(map(id, model.classifier.parameters()))
 
@@ -434,21 +436,21 @@ else:
         {'params': model.classifierA2.parameters(), 'lr': opt.lr},
         {'params': model.classifierA3.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB1.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB2.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB0.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB1.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB2.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC0.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC1.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC0.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC1.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierD0.parameters(), 'lr': opt.lr},
+        {'params': model.classifierD0.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierB3.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB4.parameters(), 'lr': opt.lr},
-         {'params': model.classifierB5.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB3.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB4.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB5.parameters(), 'lr': opt.lr},
 
-         {'params': model.classifierC2.parameters(), 'lr': opt.lr},
-         {'params': model.classifierC3.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC2.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
         {'params': model.classifier.parameters(), 'lr': opt.lr},
 

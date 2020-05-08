@@ -127,7 +127,7 @@ class PCB_Effi_GGNN(nn.Module):
         #     setattr(self, name, c)
 
         self.classifier = ClassBlock(self.part*1280, model.class_num, droprate=0.5,
-                                        relu=False, bnorm=True, num_bottleneck=256)
+                                     relu=False, bnorm=True, num_bottleneck=256)
 
     def _initialization(self):
         for m in self.modules():
