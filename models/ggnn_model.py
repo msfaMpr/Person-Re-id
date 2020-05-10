@@ -5,7 +5,7 @@ from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
 
-from base_model import ClassBlock
+from .base_model import ClassBlock
 
 
 def create_adjacency_matrix(edges, n_nodes, n_edge_types):
@@ -74,9 +74,10 @@ class Propogator(nn.Module):
 
 class PCB_Effi_GGNN(nn.Module):
 
-    def __init__(self, model):
+    def __init__(self, model, freeze_backbone=False):
         super(PCB_Effi_GGNN, self).__init__()
 
+        self.freeze_backbone = freeze_backbone
         self.part = model.part  # We cut the pool5 to 6 parts
         self.model = model.model
         self.avgpool = model.avgpool
@@ -136,11 +137,15 @@ class PCB_Effi_GGNN(nn.Module):
                 m.bias.data.fill_(0)
 
     def forward(self, x):
-        with torch.no_grad():
+        if self.freeze_backbone:
+            with torch.no_grad():
+                x = self.model.extract_features(x)
+        else:
             x = self.model.extract_features(x)
-            x = self.avgpool(x)  # b*1280*4*1
-            x = self.dropout(x)
-            x = x.squeeze()  # b*1280*4
+
+        x = self.avgpool(x)  # b*1280*4*1
+        x = self.dropout(x)
+        x = x.squeeze()  # b*1280*4
 
         # Gated Graph Neural Network
         x = torch.transpose(x, 1, 2)  # b*4*1280

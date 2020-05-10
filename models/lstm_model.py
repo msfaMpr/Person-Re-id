@@ -5,14 +5,14 @@ from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
 
-from base_model import ClassBlock
+from .base_model import ClassBlock
 
 
 class PCB_Effi_LSTM(nn.Module):
-    def __init__(self, model, train_backbone=False):
+    def __init__(self, model, freeze_backbone=False):
         super(PCB_Effi_LSTM, self).__init__()
 
-        self.train_backbone = train_backbone
+        self.freeze_backbone = freeze_backbone
         self.class_num = model.class_num
         self.part = model.part
         self.model = model.model
@@ -61,11 +61,11 @@ class PCB_Effi_LSTM(nn.Module):
                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
-        if self.train_backbone:
-            x = self.model.extract_features(x)
-        else:
+        if self.freeze_backbone:
             with torch.no_grad():
                 x = self.model.extract_features(x)
+        else:
+            x = self.model.extract_features(x)
 
         # gx = self.glob_avgpool(x)
         # gx = self.glob_dropout(gx)

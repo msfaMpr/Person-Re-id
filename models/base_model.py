@@ -70,10 +70,11 @@ class ClassBlock(nn.Module):
 
 
 class PCB(nn.Module):
-    def __init__(self, class_num):
+    def __init__(self, opt):
         super(PCB, self).__init__()
 
-        self.part = 4  # We cut the pool5 to 6 parts
+        self.part = opt.npart 
+        self.single_cls = opt.single_cls
         model_ft = models.resnet50(pretrained=True)
         self.model = model_ft
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
@@ -81,11 +82,15 @@ class PCB(nn.Module):
         # remove the final downsample
         self.model.layer4[0].downsample[0].stride = (1, 1)
         self.model.layer4[0].conv2.stride = (1, 1)
-        # define 6 classifiers
-        for i in range(self.part):
-            name = 'classifier'+str(i)
-            setattr(self, name, ClassBlock(2048, class_num, droprate=0.5,
-                                           relu=False, bnorm=True, num_bottleneck=256))
+
+        if self.single_cls:
+            self.classifier = ClassBlock(2048, opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=256)
+        else:
+            for i in range(self.part):
+                name = 'classifier'+str(i)
+                setattr(self, name, ClassBlock(2048, opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -99,14 +104,22 @@ class PCB(nn.Module):
         x = self.model.layer4(x)
         x = self.avgpool(x)
         x = self.dropout(x)
+
         part = {}
         predict = {}
-        # get six part feature batchsize*2048*6
-        for i in range(self.part):
-            part[i] = torch.squeeze(x[:, :, i])
-            name = 'classifier'+str(i)
-            c = getattr(self, name)
-            predict[i] = c(part[i])
+
+        if self.single_cls:
+            for i in range(self.part):
+                part[i] = torch.squeeze(x[:, :, i])
+                name = 'classifier'
+                c = getattr(self, name)
+                predict[i] = c(part[i])
+        else:
+            for i in range(self.part):
+                part[i] = torch.squeeze(x[:, :, i])
+                name = 'classifierA'+str(i)
+                c = getattr(self, name)
+                predict[i] = c(part[i])
 
         # sum prediction
         #y = predict[0]
@@ -121,7 +134,7 @@ class PCB(nn.Module):
 class PCB_test(nn.Module):
     def __init__(self, model):
         super(PCB_test, self).__init__()
-        self.part = 4
+        self.part = 1
         self.model = model.model
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         # remove the final downsample
