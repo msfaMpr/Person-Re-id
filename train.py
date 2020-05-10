@@ -9,6 +9,8 @@ from random_erasing import RandomErasing
 import yaml
 import math
 from shutil import copyfile
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
@@ -18,8 +20,6 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 import argparse
-import matplotlib
-matplotlib.use('agg')
 
 #from PIL import Image
 
