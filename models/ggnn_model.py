@@ -76,8 +76,7 @@ class PCB_Effi_GGNN(nn.Module):
 
     def __init__(self, model):
         super(PCB_Effi_GGNN, self).__init__()
-
-        self.part = model.part  # We cut the pool5 to 6 parts
+        self.part = model.part
         self.model = model.model
         self.avgpool = model.avgpool
         self.dropout = model.dropout

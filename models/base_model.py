@@ -10,9 +10,7 @@ from efficientnet_pytorch import EfficientNet
 
 def weights_init_kaiming(m):
     classname = m.__class__.__name__
-    # print(classname)
     if classname.find('Conv') != -1:
-        # For old pytorch, you may use kaiming_normal.
         init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
     elif classname.find('Linear') != -1:
         init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
@@ -28,9 +26,9 @@ def weights_init_classifier(m):
         init.normal_(m.weight.data, std=0.001)
         init.constant_(m.bias.data, 0.0)
 
+
 # Defines the new fc layer and classification layer
 # |--Linear--|--bn--|--relu--|--Linear--|
-
 
 class ClassBlock(nn.Module):
     def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, num_bottleneck=512, linear=True, return_f=False):
@@ -70,22 +68,23 @@ class ClassBlock(nn.Module):
 
 
 class PCB(nn.Module):
-    def __init__(self, class_num):
+    def __init__(self, opt):
         super(PCB, self).__init__()
-
-        self.part = 4  # We cut the pool5 to 6 parts
-        model_ft = models.resnet50(pretrained=True)
-        self.model = model_ft
+        self.part = opt.nparts
+        self.class_num = opt.nclasses
+        self.model = models.resnet50(pretrained=True)
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         self.dropout = nn.Dropout(p=0.5)
-        # remove the final downsample
+
         self.model.layer4[0].downsample[0].stride = (1, 1)
         self.model.layer4[0].conv2.stride = (1, 1)
-        # define 6 classifiers
+
+        self.feature_dim = self.model.fc.input_dim
+
         for i in range(self.part):
             name = 'classifier'+str(i)
-            setattr(self, name, ClassBlock(2048, class_num, droprate=0.5,
-                                           relu=False, bnorm=True, num_bottleneck=256))
+            setattr(self, name, ClassBlock(self.feature_dim, self.class_num,
+                                           droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -99,19 +98,16 @@ class PCB(nn.Module):
         x = self.model.layer4(x)
         x = self.avgpool(x)
         x = self.dropout(x)
+
         part = {}
         predict = {}
-        # get six part feature batchsize*2048*6
+
         for i in range(self.part):
             part[i] = torch.squeeze(x[:, :, i])
             name = 'classifier'+str(i)
             c = getattr(self, name)
             predict[i] = c(part[i])
 
-        # sum prediction
-        #y = predict[0]
-        # for i in range(self.part-1):
-        #    y += predict[i+1]
         y = []
         for i in range(self.part):
             y.append(predict[i])
@@ -121,12 +117,9 @@ class PCB(nn.Module):
 class PCB_test(nn.Module):
     def __init__(self, model):
         super(PCB_test, self).__init__()
-        self.part = 4
+        self.part = model.part
         self.model = model.model
-        self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
-        # remove the final downsample
-        self.model.layer4[0].downsample[0].stride = (1, 1)
-        self.model.layer4[0].conv2.stride = (1, 1)
+        self.avgpool = model.avgpool
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -144,18 +137,16 @@ class PCB_test(nn.Module):
 
 
 class PCB_Effi(nn.Module):
-    def __init__(self, class_num):
+    def __init__(self, opt):
         super(PCB_Effi, self).__init__()
-
-        self.class_num = class_num
-        self.part = 4  # We cut the pool5 to 4 parts
+        self.class_num = opt.nclasses
+        self.part = opt.nparts
         self.model = EfficientNet.from_pretrained('efficientnet-b0')
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         self.dropout = nn.Dropout(p=0.5)
 
-        self.feature_dim = 1280
+        self.feature_dim = self.model._fc.input_dim
 
-        # define 4 classifiers
         for i in range(self.part):
             name = 'classifierA'+str(i)
             setattr(self, name, ClassBlock(self.feature_dim, self.class_num, droprate=0.5,
@@ -255,27 +246,10 @@ class PCB_Effi_test(nn.Module):
         super(PCB_Effi_test, self).__init__()
         self.part = model.part
         self.model = model.model
-        self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
+        self.avgpool = model.avgpool
 
     def forward(self, x):
         x = self.model.extract_features(x)
         x = self.avgpool(x)
         y = x.view(x.size(0), x.size(1), x.size(2))
         return y
-
-
-'''
-# debug model structure
-# Run this code with:
-python model.py
-'''
-if __name__ == '__main__':
-    # Here I left a simple forward function.
-    # Test the model, before you train it.
-    net = ft_net(751, stride=1)
-    net.classifier = nn.Sequential()
-    print(net)
-    input = Variable(torch.FloatTensor(8, 3, 256, 128))
-    output = net(input)
-    print('net output size:')
-    print(output.shape)
