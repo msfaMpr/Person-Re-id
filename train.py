@@ -1,5 +1,14 @@
 from __future__ import print_function, division
 
+import argparse
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.optim import lr_scheduler
+from torch.autograd import Variable
+from torchvision import datasets, transforms
+import torch.backends.cudnn as cudnn
+import matplotlib.pyplot as plt
 import time
 import os
 from models.base_model import PCB, PCB_Effi
@@ -11,15 +20,6 @@ import math
 from shutil import copyfile
 import matplotlib
 matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import torch.backends.cudnn as cudnn
-from torchvision import datasets, transforms
-from torch.autograd import Variable
-from torch.optim import lr_scheduler
-import torch.optim as optim
-import torch.nn as nn
-import torch
-import argparse
 
 #from PIL import Image
 
@@ -121,17 +121,13 @@ if opt.train_all:
     train_all = '_all'
 
 image_datasets = {}
-image_datasets['train'] = datasets.ImageFolder(
-    os.path.join(opt.data_dir, 'train' + train_all),
-    data_transforms['train'])
+image_datasets['train'] = datasets.ImageFolder(os.path.join(
+    opt.data_dir, 'train' + train_all), data_transforms['train'])
 image_datasets['val'] = datasets.ImageFolder(
-    os.path.join(opt.data_dir, 'val'),
-    data_transforms['val'])
+    os.path.join(opt.data_dir, 'val'), data_transforms['val'])
 
 dataloaders = {x: torch.utils.data.DataLoader(
-    image_datasets[x], batch_size=opt.batchsize,
-    shuffle=True, num_workers=8, pin_memory=True
-)for x in ['train', 'val']}
+    image_datasets[x], batch_size=opt.batchsize, shuffle=True, num_workers=8, pin_memory=True) for x in ['train', 'val']}
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 
