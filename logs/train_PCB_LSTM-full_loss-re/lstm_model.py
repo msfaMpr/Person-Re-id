@@ -9,9 +9,10 @@ from .base_model import ClassBlock
 
 
 class PCB_Effi_LSTM(nn.Module):
-    def __init__(self, model, opt):
+    def __init__(self, model, train_backbone=False):
         super(PCB_Effi_LSTM, self).__init__()
-        self.freeze_backbone = opt.freeze_backbone
+
+        self.train_backbone = train_backbone
         self.class_num = model.class_num
         self.part = model.part
         self.model = model.model
@@ -60,11 +61,11 @@ class PCB_Effi_LSTM(nn.Module):
                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
-        if self.freeze_backbone:
+        if self.train_backbone:
+            x = self.model.extract_features(x)
+        else:
             with torch.no_grad():
                 x = self.model.extract_features(x)
-        else:
-            x = self.model.extract_features(x)
 
         # gx = self.glob_avgpool(x)
         # gx = self.glob_dropout(gx)
@@ -168,21 +169,19 @@ class PCB_Effi_LSTM_test(nn.Module):
         x = self.avgpool(x)
         x = x.squeeze()
 
-        '''
-        batchSize, seq_len = x.size(0), x.size(2)
-
-        h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
-        c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
-
-        x = x.transpose(2, 1)  # bxpx1280
-        x = x.transpose(1, 0)  # pxbx1280
-
-        output, hn = self.lstm(x, (h0, c0))
-
-        x = output.transpose(1, 0)  # bxpxh
-        x = x.transpose(2, 1)  # bxhxp
-        '''
+        # batchSize, seq_len = x.size(0), x.size(2)
+        #
+        # h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
+        # # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        # c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
+        # # c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        #
+        # x = x.transpose(2, 1)  # bxpx1280
+        # x = x.transpose(1, 0)  # pxbx1280
+        #
+        # output, hn = self.lstm(x, (h0, c0))
+        #
+        # x = output.transpose(1, 0)  # bxpxh
+        # x = x.transpose(2, 1)  # bxhxp
 
         return x

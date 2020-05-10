@@ -72,6 +72,7 @@ class PCB(nn.Module):
         super(PCB, self).__init__()
         self.part = opt.nparts
         self.class_num = opt.nclasses
+        self.single_cls = opt.single_cls
         self.model = models.resnet50(pretrained=True)
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         self.dropout = nn.Dropout(p=0.5)
@@ -79,12 +80,17 @@ class PCB(nn.Module):
         self.model.layer4[0].downsample[0].stride = (1, 1)
         self.model.layer4[0].conv2.stride = (1, 1)
 
-        self.feature_dim = self.model.fc.input_dim
+        self.feature_dim = self.model.fc.in_features
 
-        for i in range(self.part):
-            name = 'classifier'+str(i)
-            setattr(self, name, ClassBlock(self.feature_dim, self.class_num,
-                                           droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+        if self.single_cls:
+            name = 'classifier'
+            setattr(self, name, ClassBlock(self.part*self.feature_dim, self.class_num,
+                                        droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+        else:
+            for i in range(self.part):
+                name = 'classifier'+str(i)
+                setattr(self, name, ClassBlock(self.feature_dim, self.class_num,
+                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -101,16 +107,23 @@ class PCB(nn.Module):
 
         part = {}
         predict = {}
-
-        for i in range(self.part):
-            part[i] = torch.squeeze(x[:, :, i])
-            name = 'classifier'+str(i)
-            c = getattr(self, name)
-            predict[i] = c(part[i])
-
         y = []
-        for i in range(self.part):
-            y.append(predict[i])
+
+        if self.single_cls:
+            part[0] = torch.squeeze(x[:, :, 0])
+            name = 'classifier'
+            c = getattr(self, name)
+            predict[0] = c(part[0])
+            y.append(predict[0])
+        else:
+            for i in range(self.part):
+                part[i] = torch.squeeze(x[:, :, i])
+                name = 'classifier'+str(i)
+                c = getattr(self, name)
+                predict[i] = c(part[i])
+            for i in range(self.part):
+                y.append(predict[i])
+
         return y
 
 

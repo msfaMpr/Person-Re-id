@@ -1,17 +1,5 @@
 from __future__ import print_function, division
 
-import time
-import os
-from models.base_model import PCB, PCB_Effi
-from models.lstm_model import PCB_Effi_LSTM
-from models.ggnn_model import PCB_Effi_GGNN
-from random_erasing import RandomErasing
-import yaml
-import math
-from shutil import copyfile
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torch.autograd import Variable
@@ -20,6 +8,18 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 import argparse
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+from shutil import copyfile
+import math
+import yaml
+from random_erasing import RandomErasing
+from models.ggnn_model import PCB_Effi_GGNN
+from models.lstm_model import PCB_Effi_LSTM
+from models.base_model import PCB, PCB_Effi
+import os
+import time
 
 #from PIL import Image
 
@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser(description='Training')
 
 parser.add_argument('--gpu_ids', default='0', type=str,
                     help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--name', default='ResNet50',
+parser.add_argument('--name', default='ft_ResNet50',
                     type=str, help='output model name')
 parser.add_argument('--data_dir', default='../Market/pytorch',
                     type=str, help='training dir path')
@@ -43,10 +43,9 @@ parser.add_argument('--train_all', action='store_true',
                     help='use all training data')
 parser.add_argument('--color_jitter', action='store_true',
                     help='use color jitter in training')
-parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=8, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
-parser.add_argument('--erasing_p', default=0.0, type=float,
+parser.add_argument('--erasing_p', default=0.3, type=float,
                     help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NAS')
@@ -54,13 +53,12 @@ parser.add_argument('--warm_epoch', default=0, type=int,
                     help='the first K epoch that needs warm up')
 parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
-parser.add_argument('--single_cls', action='store_true',
-                    help='use signle classifier')
+parser.add_argument('--multi_loss', action='store_true',
+                    help='use muliple loss')
+parser.add_argument('--PCB', action='store_true', help='use PCB')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
-parser.add_argument('--backbone', default='EfficientNet-B0',
-                    type=str, help='backbone model name')
-parser.add_argument('--freeze_backbone', action='store_true',
+parser.add_argument('--train_backbone', action='store_true',
                     help='train backbone network')
 
 opt = parser.parse_args()
@@ -90,16 +88,34 @@ if len(gpu_ids) > 0:
 #
 
 transform_train_list = [
-    transforms.Resize((384, 192), interpolation=3),
+    # transforms.RandomResizedCrop(size=128, scale=(0.75, 1.0), ratio=(
+    #     0.75, 1.3333), interpolation=3),  # Image.BICUBIC
+    transforms.Resize((256, 128), interpolation=3),
+    transforms.Pad(10),
+    transforms.RandomCrop((256, 128)),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ]
+
 transform_val_list = [
-    transforms.Resize(size=(384, 192), interpolation=3),  # Image.BICUBIC
+    transforms.Resize(size=(256, 128), interpolation=3),  # Image.BICUBIC
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ]
+
+if opt.PCB:
+    transform_train_list = [
+        transforms.Resize((384, 192), interpolation=3),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]
+    transform_val_list = [
+        transforms.Resize(size=(384, 192), interpolation=3),  # Image.BICUBIC
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]
 
 if opt.erasing_p > 0:
     transform_train_list = transform_train_list + \
@@ -172,7 +188,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train(True)  # Set model to training mode
-                if opt.freeze_backbone:
+                if not opt.train_backbone:
                     model.model.train(False)
             else:
                 model.train(False)  # Set model to evaluate mode
@@ -193,6 +209,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     labels = Variable(labels.cuda().detach())
                 else:
                     inputs, labels = Variable(inputs), Variable(labels)
+                # if we use low precision, input also need to be fp16
+                # if fp16:
+                #    inputs = inputs.half()
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -204,13 +223,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     outputs = model(inputs)
 
-                if opt.single_cls:
+                if not opt.multi_loss:
                     _, preds = torch.max(outputs.data, 1)
                     loss = criterion(outputs, labels)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
-                    num_part = opt.mparts
+                    num_part = 4
 
                     for i in range(num_part):
                         part[i] = outputs['PCB'][i]
@@ -341,34 +360,29 @@ def load_network(network, model_name):
 
 opt.nclasses = len(class_names)
 
-if opt.backbone == 'ResNet50':
-    model = PCB(opt)
-elif opt.backbone == 'EfficientNet-B0':
-    model = PCB_Effi(opt)
+if opt.PCB:
+    model = PCB_Effi(opt.nclasses)
 
 if opt.LSTM:
     # model_name = 'PCB-128_dim_cls'
     # model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model, opt)
+    model = PCB_Effi_LSTM(model, opt.train_backbone)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 if opt.GGNN:
-    # model_name = 'PCB-128_dim_cls'
-    # model = load_network(model, model_name)
-    model = PCB_Effi_GGNN(model, opt)
+    model_name = 'PCB-128_dim_cls'
+    model = load_network(model, model_name)
+    model = PCB_Effi_GGNN(model, opt.train_backbone)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 print(model)
 
-if opt.single_cls:
-    if opt.backbone == 'ResNet50':
-        ignored_params = list(map(id, model.model.fc.parameters()))
-    elif opt.backbone == 'EfficientNet-B0':
-        ignored_params = list(map(id, model.model._fc.parameters()))
+if not opt.multi_loss:
+    ignored_params = list(map(id, model.model._fc.parameters()))
     ignored_params += (list(map(id, model.classifier.parameters())))
-    if opt.freeze_backbone:
+    if not opt.train_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
     base_params = filter(
         lambda p: id(p) not in ignored_params, model.parameters()
@@ -378,10 +392,7 @@ if opt.single_cls:
          {'params': model.classifier.parameters(), 'lr': opt.lr}],
         weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
-    if opt.backbone == 'ResNet50':
-        ignored_params = list(map(id, model.model.fc.parameters()))
-    elif opt.backbone == 'EfficientNet-B0':
-        ignored_params = list(map(id, model.model._fc.parameters()))
+    ignored_params = list(map(id, model.model._fc.parameters()))
     ignored_params += (
         list(map(id, model.classifierA0.parameters()))
         + list(map(id, model.classifierA1.parameters()))
@@ -405,14 +416,20 @@ else:
         + list(map(id, model.classifierC3.parameters()))
 
         + list(map(id, model.classifier.parameters()))
+
+        #  +list(map(id, model.classifier4.parameters() ))
+        #  +list(map(id, model.classifier5.parameters() ))
+        #+list(map(id, model.classifier6.parameters() ))
+        #+list(map(id, model.classifier7.parameters() ))
     )
-    if opt.freeze_backbone:
+    if not opt.train_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
     base_params = filter(
         lambda p: id(p) not in ignored_params, model.parameters()
     )
     optimizer = optim.SGD([
         {'params': base_params, 'lr': 0.1*opt.lr},
+        #  {'params': model.model._fc.parameters(), 'lr': opt.lr},
 
         {'params': model.classifierA0.parameters(), 'lr': opt.lr},
         {'params': model.classifierA1.parameters(), 'lr': opt.lr},
@@ -436,6 +453,11 @@ else:
         {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
         {'params': model.classifier.parameters(), 'lr': opt.lr},
+
+        #  {'params': model.classifier4.parameters(), 'lr': opt.lr},
+        #  {'params': model.classifier5.parameters(), 'lr': opt.lr},
+        #{'params': model.classifier6.parameters(), 'lr': 0.01},
+        #{'params': model.classifier7.parameters(), 'lr': 0.01}
     ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
