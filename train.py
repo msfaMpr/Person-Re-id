@@ -130,7 +130,7 @@ image_datasets['val'] = datasets.ImageFolder(
     os.path.join(opt.data_dir, 'val'), data_transforms['val'])
 
 dataloaders = {x: torch.utils.data.DataLoader(
-    image_datasets[x], batch_size=opt.batchsize, shuffle=True, num_workers=8, pin_memory=True) for x in ['train', 'val']}
+    image_datasets[x], batch_size=opt.batchsize, drop_last=True, shuffle=True, num_workers=8, pin_memory=True) for x in ['train', 'val']}
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 
@@ -151,7 +151,7 @@ use_gpu = torch.cuda.is_available()
 dataset = init_dataset('market1501', root='../')
 train_set = ImageDataset(dataset.train, data_transforms['train'])
 dataloaders['train'] = DataLoader(
-    train_set, batch_size=opt.batchsize,
+    train_set, batch_size=opt.batchsize, drop_last=True,
     sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
     num_workers=8)
 
@@ -196,9 +196,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # get the inputs
                 inputs, labels = data
                 now_batch_size, _, _, _ = inputs.shape
-                if now_batch_size < opt.batchsize:  # skip the last batch
-                    continue
+
+                # if now_batch_size < opt.batchsize:  # skip the last batch
+                #     continue
                 # print(inputs.shape)
+
                 # wrap them in Variable
                 if use_gpu:
                     inputs = Variable(inputs.cuda().detach())
