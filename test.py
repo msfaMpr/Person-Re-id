@@ -36,10 +36,12 @@ parser.add_argument('--test_dir', default='../Market/pytorch',
                     type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50',
                     type=str, help='save model path')
+parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
-parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--backbone', default='EfficientNet-B0',
                     type=str, help='backbone model name')
+parser.add_argument('--single_cls', action='store_true',
+                    help='use signle classifier')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
@@ -54,11 +56,11 @@ config_path = os.path.join('./logs', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
     config = yaml.load(stream)
 
-opt.LSTM = config['LSTM'] if opt.LSTM else False
-opt.GGNN = config['GGNN'] if opt.GGNN else False
-opt.use_dense = config['use_dense']
-opt.use_NAS = config['use_NAS']
-opt.stride = config['stride']
+opt.LSTM = config['LSTM']
+opt.GGNN = config['GGNN']
+opt.nparts = config['nparts']
+opt.single_cls = config['single_cls']
+opt.backbone = config['backbone']
 
 if 'nclasses' in config:  # tp compatible with old config files
     opt.nclasses = config['nclasses']
@@ -149,7 +151,7 @@ def extract_feature(model, dataloaders):
         n, c, h, w = img.size()
         # count += n
         # print(count)
-        ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
+        ff = torch.FloatTensor(n, 2048, opt.nparts).zero_().cuda()
 
         for i in range(2):
             if(i == 1):
@@ -220,11 +222,11 @@ if opt.GGNN:
 model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
-if opt.PCB and not opt.LSTM and not opt.GGNN:
-    # if opt.fp16:
-    #    model = PCB_test(model[1])
-    # else:
-    model = PCB_Effi_test(model)
+if not opt.LSTM and not opt.GGNN:
+    if opt.backbone == 'ResNet50':
+        model = PCB_test(model)
+    elif opt.backbone == 'EfficientNet-B0':
+        model = PCB_Effi_test(model)
 elif opt.LSTM:
     model = PCB_Effi_LSTM_test(model)
 elif opt.GGNN:
