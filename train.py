@@ -1,6 +1,16 @@
 from __future__ import print_function, division
 
+import time
+import os
 import argparse
+import yaml
+import math
+from shutil import copyfile
+
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,19 +18,15 @@ from torch.optim import lr_scheduler
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 import torch.backends.cudnn as cudnn
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import time
-import os
+from torch.utils.data import DataLoader
+
 from models.base_model import PCB, PCB_Effi
 from models.lstm_model import PCB_Effi_LSTM
 from models.ggnn_model import PCB_Effi_GGNN
 from random_erasing import RandomErasing
-import yaml
-import math
-from shutil import copyfile
 
+from .datasets import init_dataset, ImageDataset
+from .samplers import RandomIdentitySampler
 
 #from PIL import Image
 
@@ -132,9 +138,22 @@ class_names = image_datasets['train'].classes
 
 use_gpu = torch.cuda.is_available()
 
-since = time.time()
-inputs, classes = next(iter(dataloaders['train']))
-print(time.time()-since)
+# since = time.time()
+# inputs, classes = next(iter(dataloaders['train']))
+# print(time.time()-since)
+
+
+######################################################################
+# New Train Loader
+# --------
+#
+
+dataset = init_dataset('market1501', root='../')
+train_set = ImageDataset(dataset.train, data_transforms['train'])
+dataloaders['train'] = DataLoader(
+    train_set, batch_size=opt.batchsize,
+    sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
+    num_workers=8)
 
 
 ######################################################################
