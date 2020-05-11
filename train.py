@@ -1,5 +1,20 @@
 from __future__ import print_function, division
 
+from .samplers import RandomIdentitySampler
+from .datasets import init_dataset, ImageDataset
+from random_erasing import RandomErasing
+from models.ggnn_model import PCB_Effi_GGNN
+from models.lstm_model import PCB_Effi_LSTM
+from models.base_model import PCB, PCB_Effi
+from torch.utils.data import DataLoader
+import torch.backends.cudnn as cudnn
+from torchvision import datasets, transforms
+from torch.autograd import Variable
+from torch.optim import lr_scheduler
+import torch.optim as optim
+import torch.nn as nn
+import torch
+import matplotlib.pyplot as plt
 import time
 import os
 import argparse
@@ -9,24 +24,7 @@ from shutil import copyfile
 
 import matplotlib
 matplotlib.use('agg')
-import matplotlib.pyplot as plt
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
-from torch.autograd import Variable
-from torchvision import datasets, transforms
-import torch.backends.cudnn as cudnn
-from torch.utils.data import DataLoader
-
-from models.base_model import PCB, PCB_Effi
-from models.lstm_model import PCB_Effi_LSTM
-from models.ggnn_model import PCB_Effi_GGNN
-from random_erasing import RandomErasing
-
-from .datasets import init_dataset, ImageDataset
-from .samplers import RandomIdentitySampler
 
 #from PIL import Image
 
