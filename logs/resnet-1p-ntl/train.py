@@ -144,12 +144,12 @@ use_gpu = torch.cuda.is_available()
 # --------
 #
 
-# dataset = init_dataset('market1501', root='../')
-# train_set = ImageDataset(dataset.train, data_transforms['train'])
-# dataloaders['train'] = DataLoader(
-#     train_set, batch_size=opt.batchsize, drop_last=True,
-#     sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
-#     num_workers=8)
+dataset = init_dataset('market1501', root='../')
+train_set = ImageDataset(dataset.train, data_transforms['train'])
+dataloaders['train'] = DataLoader(
+    train_set, batch_size=opt.batchsize, drop_last=True,
+    sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
+    num_workers=8)
 
 
 ######################################################################
@@ -190,10 +190,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # Iterate over data.
             for data in dataloaders[phase]:
                 # get the inputs
-                # if phase == 'train':
-                #     inputs, labels, _, _ = data
-                # else:
-                inputs, labels = data
+                if phase == 'train':
+                    inputs, labels, _, _ = data
+                else:
+                    inputs, labels = data
 
                 now_batch_size, _, _, _ = inputs.shape
 
@@ -224,7 +224,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
-                    num_part = opt.nparts
+                    num_part = opt.mparts
 
                     for i in range(num_part):
                         part[i] = outputs['PCB'][i]
@@ -234,8 +234,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
                     _, preds = torch.max(score.data, 1)
 
-                    # loss = criterion(outputs['LSTM'], labels)
-                    loss = 0.0
+                    loss = criterion(outputs['LSTM'], labels)
                     for i in range(num_part):
                         loss += criterion(part[i], labels)
 
@@ -419,7 +418,7 @@ else:
         + list(map(id, model.classifierC2.parameters()))
         + list(map(id, model.classifierC3.parameters()))
 
-        # + list(map(id, model.classifier.parameters()))
+        + list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
@@ -450,7 +449,7 @@ else:
         {'params': model.classifierC2.parameters(), 'lr': opt.lr},
         {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
-        # {'params': model.classifier.parameters(), 'lr': opt.lr},
+        {'params': model.classifier.parameters(), 'lr': opt.lr},
     ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs

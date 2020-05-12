@@ -144,12 +144,12 @@ use_gpu = torch.cuda.is_available()
 # --------
 #
 
-# dataset = init_dataset('market1501', root='../')
-# train_set = ImageDataset(dataset.train, data_transforms['train'])
-# dataloaders['train'] = DataLoader(
-#     train_set, batch_size=opt.batchsize, drop_last=True,
-#     sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
-#     num_workers=8)
+dataset = init_dataset('market1501', root='../')
+train_set = ImageDataset(dataset.train, data_transforms['train'])
+dataloaders['train'] = DataLoader(
+    train_set, batch_size=opt.batchsize, drop_last=True,
+    sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
+    num_workers=8)
 
 
 ######################################################################
@@ -190,10 +190,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # Iterate over data.
             for data in dataloaders[phase]:
                 # get the inputs
-                # if phase == 'train':
-                #     inputs, labels, _, _ = data
-                # else:
-                inputs, labels = data
+                if phase == 'train':
+                    inputs, labels, _, _ = data
+                else:
+                    inputs, labels = data
 
                 now_batch_size, _, _, _ = inputs.shape
 
