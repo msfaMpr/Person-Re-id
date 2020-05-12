@@ -7,6 +7,7 @@ from models.ggnn_model import PCB_Effi_GGNN
 from models.lstm_model import PCB_Effi_LSTM
 from models.base_model import PCB, PCB_Effi
 from torch.utils.data import DataLoader
+import torchvision.transforms as T
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torch.autograd import Variable
@@ -143,14 +144,33 @@ use_gpu = torch.cuda.is_available()
 # New Train Loader
 # --------
 #
+normalize_transform = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-# dataset = init_dataset('market1501', root='../')
-# train_set = ImageDataset(dataset.train, data_transforms['train'])
-# dataloaders['train'] = DataLoader(
-#     train_set, batch_size=opt.batchsize, drop_last=True,
-#     sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4),
-#     num_workers=8)
+train_transforms = T.Compose([
+    T.Resize([384, 128]),
+    T.RandomHorizontalFlip(p=0.5),
+    T.Pad(10),
+    T.RandomCrop([384, 128]),
+    T.ToTensor(),
+    normalize_transform,
+    RandomErasing(probability=0.5, mean=[0.485, 0.456, 0.406])
+])
 
+val_transforms = T.Compose([
+    T.Resize([384, 128]),
+    T.ToTensor(),
+    normalize_transform
+])
+
+dataset = init_dataset('market1501', root='../')
+train_set = ImageDataset(dataset.train, train_transforms)
+dataloaders['train'] = DataLoader(
+    train_set, batch_size=opt.batchsize, drop_last=True, shuffle=True,
+    sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4), num_workers=8)
+
+val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
+dataloaders['val'] = DataLoader(
+    val_set, batch_size=opt.batchsize, drop_last=True, shuffle=False, num_workers=8)
 
 ######################################################################
 # Training the model
@@ -190,10 +210,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # Iterate over data.
             for data in dataloaders[phase]:
                 # get the inputs
-                # if phase == 'train':
-                #     inputs, labels, _, _ = data
-                # else:
-                inputs, labels = data
+                inputs, labels, _, _ = data
 
                 now_batch_size, _, _, _ = inputs.shape
 
