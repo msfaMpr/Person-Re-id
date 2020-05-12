@@ -2,12 +2,15 @@ from __future__ import print_function, division
 
 from samplers import RandomIdentitySampler
 from datasets import init_dataset, ImageDataset
+from losses.triplet_loss import TripletLoss, CrossEntropyLabelSmooth
+from losses.center_loss import CenterLoss
 from random_erasing import RandomErasing
 from models.ggnn_model import PCB_Effi_GGNN
 from models.lstm_model import PCB_Effi_LSTM
 from models.base_model import PCB, PCB_Effi
 from torch.utils.data import DataLoader
-import torchvision.transforms as T
+import torchvision.transforms as Ts
+import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torch.autograd import Variable
@@ -172,6 +175,7 @@ val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
 dataloaders['val'] = DataLoader(
     val_set, batch_size=opt.batchsize, drop_last=True, shuffle=False, num_workers=8)
 
+]
 ######################################################################
 # Training the model
 # --------
@@ -185,7 +189,7 @@ y_err['train'] = []
 y_err['val'] = []
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
     warm_up = 0.1  # We start from the 0.1*lrRate
@@ -231,13 +235,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # forward
                 if phase == 'val':
                     with torch.no_grad():
-                        outputs = model(inputs)
+                        outputs, features = model(inputs)
                 else:
-                    outputs = model(inputs)
+                    outputs, features = model(inputs)
 
                 if opt.single_cls:
                     _, preds = torch.max(outputs.data, 1)
-                    loss = criterion(outputs, labels)
+                    loss = loss_func(outputs, labels)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
@@ -497,7 +501,20 @@ with open('%s/opts.yaml' % dir_name, 'w') as fp:
 # model to gpu
 model = model.cuda()
 
-criterion = nn.CrossEntropyLoss()
+triplet = TripletLoss(0.3)
+xent = CrossEntropyLabelSmooth(num_classes=opt.nclasses)
 
-model = train_model(model, criterion, optimizer,
+def loss_func(score, feat, target):
+    if opt.use_triplet_loss:
+        if opt.label_smoothing:
+            return xent(score, target) + triplet(feat, target)[0]
+        else:
+            return F.cross_entropy(score, target) + triplet(feat, target)[0]
+    else:
+        if opt.label_smoothing:
+            return xent(score, target)
+        else:
+            return F.cross_entropy(score, target)
+
+model = train_model(model, loss_func, optimizer,
                     exp_lr_scheduler, num_epochs=50)

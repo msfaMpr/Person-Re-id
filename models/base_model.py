@@ -77,8 +77,8 @@ class PCB(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         self.dropout = nn.Dropout(p=0.5)
 
-        self.model.layer4[0].downsample[0].stride = (1, 1)
-        self.model.layer4[0].conv2.stride = (1, 1)
+        # self.model.layer4[0].downsample[0].stride = (1, 1)
+        # self.model.layer4[0].conv2.stride = (1, 1)
 
         self.feature_dim = self.model.fc.in_features
 
@@ -124,7 +124,7 @@ class PCB(nn.Module):
             for i in range(self.part):
                 y.append(predict[i])
 
-        return y
+        return y, part[0]
 
 
 class PCB_test(nn.Module):
