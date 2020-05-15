@@ -97,7 +97,7 @@ if len(gpu_ids) > 0:
 #
 
 data_transforms = transforms.Compose([
-    transforms.Resize((384, 192), interpolation=3),
+    transforms.Resize((384, 128), interpolation=3),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
@@ -151,7 +151,7 @@ def extract_feature(model, dataloaders):
         n, c, h, w = img.size()
         # count += n
         # print(count)
-        ff = torch.FloatTensor(n, 1280, opt.nparts).zero_().cuda()
+        ff = torch.FloatTensor(n, 2048, opt.nparts).zero_().cuda()
 
         for i in range(2):
             if(i == 1):
