@@ -28,25 +28,19 @@ from models.ggnn_model import PCB_Effi_GGNN, PCB_Effi_GGNN_test
 # --------
 
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu_ids', default='0', type=str,
-                    help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--which_epoch', default='last',
-                    type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir', default='../Market/pytorch',
-                    type=str, help='./test_data')
-parser.add_argument('--name', default='ft_ResNet50',
-                    type=str, help='save model path')
+parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
+parser.add_argument('--test_dir', default='../Market/pytorch', type=str, help='./test_data')
+parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
-parser.add_argument('--backbone', default='EfficientNet-B0',
-                    type=str, help='backbone model name')
-parser.add_argument('--single_cls', action='store_true',
-                    help='use signle classifier')
+parser.add_argument('--backbone', default='EfficientNet-B0', type=str, help='backbone model name')
+parser.add_argument('--single_cls', action='store_true', help='use signle classifier')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
-parser.add_argument('--ms', default='1', type=str,
-                    help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
+parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
+parser.add_argument('--ms', default='1', type=str, help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
 
 opt = parser.parse_args()
 
@@ -61,6 +55,9 @@ opt.GGNN = config['GGNN']
 opt.nparts = config['nparts']
 opt.single_cls = config['single_cls']
 opt.backbone = config['backbone']
+opt.freeze_backbone = config['freeze_backbone']
+opt.use_triplet_loss = config['use_triplet_loss']
+opt.bidirectional = config['bidirectional']
 
 if 'nclasses' in config:  # tp compatible with old config files
     opt.nclasses = config['nclasses']
@@ -151,7 +148,7 @@ def extract_feature(model, dataloaders):
         n, c, h, w = img.size()
         # count += n
         # print(count)
-        ff = torch.FloatTensor(n, 2048, opt.nparts).zero_().cuda()
+        ff = torch.FloatTensor(n, 1280, 2*opt.nparts).zero_().cuda()
 
         for i in range(2):
             if(i == 1):
@@ -254,6 +251,7 @@ scipy.io.savemat('pytorch_result.mat', result)
 print(opt.name)
 result = './logs/%s/result.txt' % opt.name
 os.system('python evaluate_gpu.py | tee -a %s' % result)
+# os.system('python evaluate_rerank.py | tee -a %s' % result)
 
 if opt.multi:
     result = {'mquery_f': mquery_feature.numpy(

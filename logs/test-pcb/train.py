@@ -44,30 +44,40 @@ version = torch.__version__
 
 parser = argparse.ArgumentParser(description='Training')
 
-parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--name', default='ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
-parser.add_argument('--train_all', action='store_true', help='use all training data')
-parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
+parser.add_argument('--gpu_ids', default='0', type=str,
+                    help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--name', default='ResNet50',
+                    type=str, help='output model name')
+parser.add_argument('--data_dir', default='../Market/pytorch',
+                    type=str, help='training dir path')
+parser.add_argument('--train_all', action='store_true',
+                    help='use all training data')
+parser.add_argument('--color_jitter', action='store_true',
+                    help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
-parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
-parser.add_argument('--warm_epoch', default=10, type=int, help='the first K epoch that needs warm up')
+parser.add_argument('--erasing_p', default=0.0, type=float,
+                    help='Random Erasing probability, in [0,1]')
+parser.add_argument('--warm_epoch', default=10, type=int,
+                    help='the first K epoch that needs warm up')
 parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
-parser.add_argument('--single_cls', action='store_true', help='use signle classifier')
+parser.add_argument('--single_cls', action='store_true',
+                    help='use signle classifier')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
-parser.add_argument('--backbone', default='EfficientNet-B0', type=str, help='backbone model name')
-parser.add_argument('--freeze_backbone', action='store_true', help='train backbone network')
-parser.add_argument('--use_triplet_loss', action='store_true', help='use triplet loss for training')
-parser.add_argument('--label_smoothing', action='store_true', help='use label smoothing')
-parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
+parser.add_argument('--backbone', default='EfficientNet-B0',
+                    type=str, help='backbone model name')
+parser.add_argument('--freeze_backbone', action='store_true',
+                    help='train backbone network')
+parser.add_argument('--use_triplet_loss', action='store_true',
+                    help='use triplet loss for training')
+parser.add_argument('--label_smoothing', action='store_true',
+                    help='use label smoothing')
 
 opt = parser.parse_args()
 
 # opt.use_triplet_loss = True
 opt.label_smoothing = True
-opt.bidirectional = opt.LSTM
 
 
 ######################################################################
@@ -139,9 +149,13 @@ class_names = image_datasets['train'].classes
 
 use_gpu = torch.cuda.is_available()
 
+# since = time.time()
+# inputs, classes = next(iter(dataloaders['train']))
+# print(time.time()-since)
+
 
 ######################################################################
-# New Data Loader
+# New Train Loader
 # --------
 #
 
@@ -237,13 +251,16 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                 # forward
                 if phase == 'val':
+
                     with torch.no_grad():
                         if opt.use_triplet_loss:
                             outputs, features = model(inputs)
                         else:
                             outputs = model(inputs)
                             features = None
+
                 else:
+
                     if opt.use_triplet_loss:
                         outputs, features = model(inputs)
                     else:
@@ -267,14 +284,10 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                     _, preds = torch.max(score.data, 1)
 
+                    # loss = criterion(outputs['LSTM'], labels)
                     loss = loss_func(part[0], features, labels)
                     for i in range(1, num_part):
                         loss += loss_func(part[i], features, labels)
-                    
-                    if opt.LSTM:
-                        loss += loss_func(outputs['LSTM'], features, labels)
-                    if opt.GGNN:
-                        loss += loss_func(outputs['GGNN'], features, labels)
 
                     # for i in range(num_part-1):
                     #     loss += loss_func(outputs['PCB'][num_part+i], labels)
@@ -400,17 +413,17 @@ elif opt.backbone == 'EfficientNet-B0':
     model = PCB_Effi(opt)
 
 if opt.LSTM:
-    model_name = 'PCB-256_dim_cls'
-    model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model)
+    # model_name = 'PCB-128_dim_cls'
+    # model = load_network(model, model_name)
+    model = PCB_Effi_LSTM(model, opt)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 if opt.GGNN:
     # model_name = 'PCB-128_dim_cls'
     # model = load_network(model, model_name)
-    model = PCB_Effi_GGNN(model)
-    # model_name = 'GGNN'
+    model = PCB_Effi_GGNN(model, opt)
+    # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 print(model)
@@ -461,7 +474,7 @@ else:
         # + list(map(id, model.classifierC2.parameters()))
         # + list(map(id, model.classifierC3.parameters()))
 
-        + list(map(id, model.classifier.parameters()))
+        # + list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
@@ -475,8 +488,7 @@ else:
         {'params': model.classifierA0.parameters(), 'lr': 0.0035},
         {'params': model.classifierA1.parameters(), 'lr': 0.0035},
         {'params': model.classifierA2.parameters(), 'lr': 0.0035},
-        {'params': model.classifierA3.parameters(), 'lr': 0.0035},
-        {'params': model.classifier.parameters(), 'lr': 0.0035}])
+        {'params': model.classifierA3.parameters(), 'lr': 0.0035}])
 
     # optimizer = optim.SGD([
     #     {'params': base_params, 'lr': 0.1*opt.lr},
@@ -549,4 +561,4 @@ def loss_func(score, feat, target):
             return F.cross_entropy(score, target)
 
 model = train_model(model, loss_func, optimizer,
-                    exp_lr_scheduler, num_epochs=120)
+                    exp_lr_scheduler, num_epochs=100)

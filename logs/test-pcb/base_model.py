@@ -24,6 +24,7 @@ def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         init.normal_(m.weight.data, std=0.001)
+        # if m.bias:
         nn.init.constant_(m.bias, 0.0)
 
 
@@ -75,10 +76,10 @@ class PCB(nn.Module):
         self.single_cls = opt.single_cls
         self.model = models.resnet50(pretrained=True)
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
-        self.dropout = nn.Dropout(p=0.5)
+        # self.dropout = nn.Dropout(p=0.5)
 
-        self.model.layer4[0].downsample[0].stride = (1, 1)
-        self.model.layer4[0].conv2.stride = (1, 1)
+        # self.model.layer4[0].downsample[0].stride = (1, 1)
+        # self.model.layer4[0].conv2.stride = (1, 1)
 
         self.feature_dim = self.model.fc.in_features
 
@@ -152,21 +153,56 @@ class PCB_test(nn.Module):
 class PCB_Effi(nn.Module):
     def __init__(self, opt):
         super(PCB_Effi, self).__init__()
-        self.opt = opt
+        self.class_num = opt.nclasses
+        self.part = opt.nparts
+        self.single_cls = opt.single_cls
+        self.triplet_loss = opt.use_triplet_loss
         self.model = EfficientNet.from_pretrained('efficientnet-b0')
-        self.avgpool = nn.AdaptiveAvgPool2d((self.opt.nparts, 1))
+        self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         self.dropout = nn.Dropout(p=0.5)
 
-        self.feature_dim = self.model._fc.in_features         
+        self.feature_dim = self.model._fc.in_features
 
-        if self.opt.single_cls:
+        # if self.single_cls:
+        #     self.bottleneck = nn.BatchNorm1d(self.feature_dim)
+        #     self.bottleneck.bias.requires_grad_(False) 
+        #     self.bottleneck.apply(weights_init_kaiming)
+        # else:
+        #     self.bottleneckA0 = nn.BatchNorm1d(self.feature_dim)
+        #     self.bottleneckA0.bias.requires_grad_(False) 
+        #     self.bottleneckA0.apply(weights_init_kaiming)
+
+        #     self.bottleneckA1 = nn.BatchNorm1d(self.feature_dim)
+        #     self.bottleneckA1.bias.requires_grad_(False) 
+        #     self.bottleneckA1.apply(weights_init_kaiming)
+
+        #     self.bottleneckA2 = nn.BatchNorm1d(self.feature_dim)
+        #     self.bottleneckA2.bias.requires_grad_(False) 
+        #     self.bottleneckA2.apply(weights_init_kaiming)
+
+        #     self.bottleneckA3 = nn.BatchNorm1d(self.feature_dim)
+        #     self.bottleneckA3.bias.requires_grad_(False) 
+        #     self.bottleneckA3.apply(weights_init_kaiming)            
+
+        if self.single_cls:
+            # self.classifier = nn.Linear(self.feature_dim, self.class_num, bias=False)
+            # self.classifier.apply(weights_init_classifier)
             name = 'classifier'
-            setattr(self, name, ClassBlock(self.opt.nparts*self.feature_dim, self.opt.nclasses,
+            setattr(self, name, ClassBlock(self.part*self.feature_dim, self.class_num,
                                         droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
         else:
-            for i in range(self.opt.nparts):
+            # self.classifierA0 = nn.Linear(self.feature_dim, self.class_num, bias=False)
+            # self.classifierA0.apply(weights_init_classifier)
+            # self.classifierA1 = nn.Linear(self.feature_dim, self.class_num, bias=False)
+            # self.classifierA1.apply(weights_init_classifier)
+            # self.classifierA2 = nn.Linear(self.feature_dim, self.class_num, bias=False)
+            # self.classifierA2.apply(weights_init_classifier)
+            # self.classifierA3 = nn.Linear(self.feature_dim, self.class_num, bias=False)
+            # self.classifierA3.apply(weights_init_classifier)
+
+            for i in range(self.part):
                 name = 'classifierA'+str(i)
-                setattr(self, name, ClassBlock(self.feature_dim, self.opt.nclasses, droprate=0.5,
+                setattr(self, name, ClassBlock(self.feature_dim, self.class_num, droprate=0.5,
                                             relu=False, bnorm=True, num_bottleneck=256))
 
             # for i in range(self.part-1):s
@@ -202,16 +238,25 @@ class PCB_Effi(nn.Module):
         y = {}
         y['PCB'] = []
 
-        if self.opt.single_cls:
+        if self.single_cls:
             feat = self.bottleneck(x)
             y = self.classifier(feat)
 
-            if self.opt.use_triplet_loss:
+            if self.triplet_loss:
                 return y, feat
             else:
                 return y
 
         else:
+            # for i in range(self.part):
+            #     partA.append(torch.flatten(x[:, i:i+1, :], 1))
+            # y['PCB'].append(self.classifierA0(self.bottleneckA0(partA[0])))
+            # y['PCB'].append(self.classifierA1(self.bottleneckA1(partA[1])))
+            # y['PCB'].append(self.classifierA2(self.bottleneckA2(partA[2])))
+            # y['PCB'].append(self.classifierA3(self.bottleneckA3(partA[3])))
+
+            # feat = torch.cat(partA, 1)
+
             for i in range(self.part):
                 partA[i] = torch.flatten(x[:, i:i+1, :], 1)
                 name = 'classifierA'+str(i)
@@ -260,7 +305,7 @@ class PCB_Effi(nn.Module):
             # predictC[3] = self.classifierC3(partC[3])
             # y['PCB'].append(predictC[3])
 
-            if self.opt.use_triplet_loss:
+            if self.triplet_loss:
                 return y, feat
             else:
                 return y
@@ -269,14 +314,33 @@ class PCB_Effi(nn.Module):
 class PCB_Effi_test(nn.Module):
     def __init__(self, model):
         super(PCB_Effi_test, self).__init__()
-        self.opt = model.opt
+        self.single_cls = model.single_cls
+        self.part = model.part
         self.model = model.model
         self.avgpool = model.avgpool
+
+        # if self.single_cls:
+        #     self.bottleneck = model.bottleneck
+        # else:
+        #     self.bottleneckA0 = model.bottleneckA0
+        #     self.bottleneckA1 = model.bottleneckA1
+        #     self.bottleneckA2 = model.bottleneckA2
+        #     self.bottleneckA3 = model.bottleneckA3
 
     def forward(self, x):
         x = self.model.extract_features(x)
         x = self.avgpool(x)
 
+        # if self.single_cls:
+        #     feat = self.bottleneck(x.squeeze())
+        # else:
+        #     x.squeeze()
+        #     feat = []
+        #     feat.append(self.bottleneckA0(x[:, :, 0]))
+        #     feat.append(self.bottleneckA1(x[:, :, 1]))
+        #     feat.append(self.bottleneckA2(x[:, :, 2]))
+        #     feat.append(self.bottleneckA3(x[:, :, 3]))
+        #     feat = torch.cat(feat, 2) 
+
         y = x.view(x.size(0), x.size(1), x.size(2))
-        
         return y

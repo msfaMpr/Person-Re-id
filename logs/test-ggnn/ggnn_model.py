@@ -244,6 +244,5 @@ class PCB_Effi_GGNN_test(nn.Module):
 
         y = torch.cat([x, gx], 2)
         # y = x
-        print(y.size())
 
         return y

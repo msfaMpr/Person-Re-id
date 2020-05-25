@@ -409,7 +409,7 @@ if opt.LSTM:
 if opt.GGNN:
     # model_name = 'PCB-128_dim_cls'
     # model = load_network(model, model_name)
-    model = PCB_Effi_GGNN(model)
+    model = PCB_Effi_GGNN(model, opt)
     # model_name = 'GGNN'
     # model = load_network(model, model_name)
 

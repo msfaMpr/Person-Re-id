@@ -165,6 +165,7 @@ class PCB_Effi_LSTM_test(nn.Module):
         x = self.avgpool(x)
         x = x.squeeze() # bx1280xp
 
+        
         batchSize, seq_len = x.size(0), x.size(2)
 
         h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
@@ -180,5 +181,9 @@ class PCB_Effi_LSTM_test(nn.Module):
 
         y = torch.cat([x, lx], 2)
         # y = x
+
+        print(x.size())
+        print(lx.size())
+        print(y.size())
 
         return y

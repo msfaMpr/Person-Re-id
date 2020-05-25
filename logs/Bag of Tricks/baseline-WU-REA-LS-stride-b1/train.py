@@ -1,24 +1,13 @@
 from __future__ import print_function, division
 
-import time
-import os
-import argparse
-import yaml
-import math
-from shutil import copyfile
-#from PIL import Image
-
 from samplers import RandomIdentitySampler
 from datasets import init_dataset, ImageDataset
 from losses.triplet_loss import TripletLoss, CrossEntropyLabelSmooth
 from losses.center_loss import CenterLoss
-
 from random_erasing import RandomErasing
-
 from models.ggnn_model import PCB_Effi_GGNN
 from models.lstm_model import PCB_Effi_LSTM
 from models.base_model import PCB, PCB_Effi
-
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
 import torch.nn.functional as F
@@ -29,10 +18,17 @@ from torch.optim import lr_scheduler
 import torch.optim as optim
 import torch.nn as nn
 import torch
-
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import time
+import os
+import argparse
+import yaml
+import math
+from shutil import copyfile
+
+#from PIL import Image
 
 version = torch.__version__
 
@@ -44,30 +40,39 @@ version = torch.__version__
 
 parser = argparse.ArgumentParser(description='Training')
 
-parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--name', default='ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
-parser.add_argument('--train_all', action='store_true', help='use all training data')
-parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
+parser.add_argument('--gpu_ids', default='0', type=str,
+                    help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--name', default='ResNet50',
+                    type=str, help='output model name')
+parser.add_argument('--data_dir', default='../Market/pytorch',
+                    type=str, help='training dir path')
+parser.add_argument('--train_all', action='store_true',
+                    help='use all training data')
+parser.add_argument('--color_jitter', action='store_true',
+                    help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
-parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
-parser.add_argument('--warm_epoch', default=10, type=int, help='the first K epoch that needs warm up')
-parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
-parser.add_argument('--single_cls', action='store_true', help='use signle classifier')
+parser.add_argument('--erasing_p', default=0.0, type=float,
+                    help='Random Erasing probability, in [0,1]')
+parser.add_argument('--warm_epoch', default=10, type=int,
+                    help='the first K epoch that needs warm up')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
+parser.add_argument('--single_cls', action='store_true',
+                    help='use signle classifier')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
-parser.add_argument('--backbone', default='EfficientNet-B0', type=str, help='backbone model name')
-parser.add_argument('--freeze_backbone', action='store_true', help='train backbone network')
-parser.add_argument('--use_triplet_loss', action='store_true', help='use triplet loss for training')
-parser.add_argument('--label_smoothing', action='store_true', help='use label smoothing')
-parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
+parser.add_argument('--backbone', default='EfficientNet-B0',
+                    type=str, help='backbone model name')
+parser.add_argument('--freeze_backbone', action='store_true',
+                    help='train backbone network')
+parser.add_argument('--use_triplet_loss', action='store_true',
+                    help='use triplet loss for training')
+parser.add_argument('--label_smoothing', action='store_true',
+                    help='use label smoothing')
 
 opt = parser.parse_args()
-
-# opt.use_triplet_loss = True
+opt.use_triplet_loss = True
 opt.label_smoothing = True
-opt.bidirectional = opt.LSTM
 
 
 ######################################################################
@@ -139,12 +144,15 @@ class_names = image_datasets['train'].classes
 
 use_gpu = torch.cuda.is_available()
 
+# since = time.time()
+# inputs, classes = next(iter(dataloaders['train']))
+# print(time.time()-since)
+
 
 ######################################################################
-# New Data Loader
+# New Train Loader
 # --------
 #
-
 normalize_transform = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 train_transforms = T.Compose([
@@ -200,7 +208,6 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
-
             if phase == 'train':
                 model.train(True)  # Set model to training mode
                 if opt.freeze_backbone:
@@ -210,10 +217,8 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
             running_loss = 0.0
             running_corrects = 0.0
-
             # Iterate over data.
             for data in dataloaders[phase]:
-
                 # get the inputs
                 if phase == 'train':
                     inputs, labels, _, _ = data
@@ -238,24 +243,15 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                 # forward
                 if phase == 'val':
                     with torch.no_grad():
-                        if opt.use_triplet_loss:
-                            outputs, features = model(inputs)
-                        else:
-                            outputs = model(inputs)
-                            features = None
-                else:
-                    if opt.use_triplet_loss:
                         outputs, features = model(inputs)
-                    else:
-                        outputs = model(inputs)
-                        features = None
+                else:
+                    outputs, features = model(inputs)
 
                 if opt.single_cls:
                     _, preds = torch.max(outputs.data, 1)
                     loss = loss_func(outputs, features, labels)
                 else:
                     part = {}
-                    feat = {}
                     sm = nn.Softmax(dim=1)
                     num_part = opt.nparts
 
@@ -267,28 +263,24 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                     _, preds = torch.max(score.data, 1)
 
-                    loss = loss_func(part[0], features, labels)
-                    for i in range(1, num_part):
-                        loss += loss_func(part[i], features, labels)
-                    
-                    if opt.LSTM:
-                        loss += loss_func(outputs['LSTM'], features, labels)
-                    if opt.GGNN:
-                        loss += loss_func(outputs['GGNN'], features, labels)
+                    # loss = criterion(outputs['LSTM'], labels)
+                    loss = 0.0
+                    for i in range(num_part):
+                        loss += loss_func(part[i], labels)
 
-                    # for i in range(num_part-1):
-                    #     loss += loss_func(outputs['PCB'][num_part+i], labels)
+                    for i in range(num_part-1):
+                        loss += loss_func(outputs['PCB'][num_part+i], labels)
 
-                    # for i in range(num_part-2):
-                    #     loss + loss_func(outputs['PCB']
-                    #                      [2*num_part+i-1], labels)
+                    for i in range(num_part-2):
+                        loss + loss_func(outputs['PCB']
+                                         [2*num_part+i-1], labels)
 
-                    # for i in range(num_part-3):
-                    #     loss + loss_func(outputs['PCB']
-                    #                      [3*num_part+i-3], labels)
+                    for i in range(num_part-3):
+                        loss + loss_func(outputs['PCB']
+                                         [3*num_part+i-3], labels)
 
-                    # for i in range(5):
-                    #     loss += loss_func(outputs['PCB'][10+i], labels)
+                    for i in range(5):
+                        loss += loss_func(outputs['PCB'][10+i], labels)
 
                 # backward + optimize only if in training phase
                 if epoch < opt.warm_epoch and phase == 'train':
@@ -317,7 +309,6 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
             y_loss[phase].append(epoch_loss)
             y_err[phase].append(1.0-epoch_acc)
-
             # deep copy the model
             if phase == 'val':
                 last_model_wts = model.state_dict()
@@ -400,17 +391,17 @@ elif opt.backbone == 'EfficientNet-B0':
     model = PCB_Effi(opt)
 
 if opt.LSTM:
-    model_name = 'PCB-256_dim_cls'
-    model = load_network(model, model_name)
-    model = PCB_Effi_LSTM(model)
+    # model_name = 'PCB-128_dim_cls'
+    # model = load_network(model, model_name)
+    model = PCB_Effi_LSTM(model, opt)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 if opt.GGNN:
     # model_name = 'PCB-128_dim_cls'
     # model = load_network(model, model_name)
-    model = PCB_Effi_GGNN(model)
-    # model_name = 'GGNN'
+    model = PCB_Effi_GGNN(model, opt)
+    # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 print(model)
@@ -432,7 +423,7 @@ if opt.single_cls:
     #     weight_decay=5e-4, momentum=0.9, nesterov=True)
     optimizer = optim.Adam(
         [{'params': base_params, 'lr': 0.00035},
-         {'params': model.classifier.parameters(), 'lr': 0.0035}]
+         {'params': model.classifier.parameters(), 'lr': 0.00035}]
     )
 else:
     if opt.backbone == 'ResNet50':
@@ -445,66 +436,55 @@ else:
         + list(map(id, model.classifierA2.parameters()))
         + list(map(id, model.classifierA3.parameters()))
 
-        # + list(map(id, model.classifierB0.parameters()))
-        # + list(map(id, model.classifierB1.parameters()))
-        # + list(map(id, model.classifierB2.parameters()))
+        + list(map(id, model.classifierB0.parameters()))
+        + list(map(id, model.classifierB1.parameters()))
+        + list(map(id, model.classifierB2.parameters()))
 
-        # + list(map(id, model.classifierC0.parameters()))
-        # + list(map(id, model.classifierC1.parameters()))
+        + list(map(id, model.classifierC0.parameters()))
+        + list(map(id, model.classifierC1.parameters()))
 
-        # + list(map(id, model.classifierD0.parameters()))
+        + list(map(id, model.classifierD0.parameters()))
 
-        # + list(map(id, model.classifierB3.parameters()))
-        # + list(map(id, model.classifierB4.parameters()))
-        # + list(map(id, model.classifierB5.parameters()))
+        + list(map(id, model.classifierB3.parameters()))
+        + list(map(id, model.classifierB4.parameters()))
+        + list(map(id, model.classifierB5.parameters()))
 
-        # + list(map(id, model.classifierC2.parameters()))
-        # + list(map(id, model.classifierC3.parameters()))
+        + list(map(id, model.classifierC2.parameters()))
+        + list(map(id, model.classifierC3.parameters()))
 
-        + list(map(id, model.classifier.parameters()))
+        # + list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
     base_params = filter(
         lambda p: id(p) not in ignored_params, model.parameters()
     )
+    optimizer = optim.SGD([
+        {'params': base_params, 'lr': 0.1*opt.lr},
 
-    optimizer = optim.Adam([
-        {'params': base_params, 'lr': 0.00035},
+        {'params': model.classifierA0.parameters(), 'lr': opt.lr},
+        {'params': model.classifierA1.parameters(), 'lr': opt.lr},
+        {'params': model.classifierA2.parameters(), 'lr': opt.lr},
+        {'params': model.classifierA3.parameters(), 'lr': opt.lr},
 
-        {'params': model.classifierA0.parameters(), 'lr': 0.0035},
-        {'params': model.classifierA1.parameters(), 'lr': 0.0035},
-        {'params': model.classifierA2.parameters(), 'lr': 0.0035},
-        {'params': model.classifierA3.parameters(), 'lr': 0.0035},
-        {'params': model.classifier.parameters(), 'lr': 0.0035}])
+        {'params': model.classifierB0.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB1.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB2.parameters(), 'lr': opt.lr},
 
-    # optimizer = optim.SGD([
-    #     {'params': base_params, 'lr': 0.1*opt.lr},
+        {'params': model.classifierC0.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC1.parameters(), 'lr': opt.lr},
 
-    #     {'params': model.classifierA0.parameters(), 'lr': opt.lr},
-    #     {'params': model.classifierA1.parameters(), 'lr': opt.lr},
-    #     {'params': model.classifierA2.parameters(), 'lr': opt.lr},
-    #     {'params': model.classifierA3.parameters(), 'lr': opt.lr},
+        {'params': model.classifierD0.parameters(), 'lr': opt.lr},
 
-        # {'params': model.classifierB0.parameters(), 'lr': opt.lr},
-        # {'params': model.classifierB1.parameters(), 'lr': opt.lr},
-        # {'params': model.classifierB2.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB3.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB4.parameters(), 'lr': opt.lr},
+        {'params': model.classifierB5.parameters(), 'lr': opt.lr},
 
-        # {'params': model.classifierC0.parameters(), 'lr': opt.lr},
-        # {'params': model.classifierC1.parameters(), 'lr': opt.lr},
-
-        # {'params': model.classifierD0.parameters(), 'lr': opt.lr},
-
-        # {'params': model.classifierB3.parameters(), 'lr': opt.lr},
-        # {'params': model.classifierB4.parameters(), 'lr': opt.lr},
-        # {'params': model.classifierB5.parameters(), 'lr': opt.lr},
-
-        # {'params': model.classifierC2.parameters(), 'lr': opt.lr},
-        # {'params': model.classifierC3.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC2.parameters(), 'lr': opt.lr},
+        {'params': model.classifierC3.parameters(), 'lr': opt.lr},
 
         # {'params': model.classifier.parameters(), 'lr': opt.lr},
-
-    # ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+    ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
 exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[40, 70], gamma=0.1)
@@ -549,4 +529,4 @@ def loss_func(score, feat, target):
             return F.cross_entropy(score, target)
 
 model = train_model(model, loss_func, optimizer,
-                    exp_lr_scheduler, num_epochs=120)
+                    exp_lr_scheduler, num_epochs=80)
