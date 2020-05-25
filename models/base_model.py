@@ -212,7 +212,7 @@ class PCB_Effi(nn.Module):
                 return y
 
         else:
-            for i in range(self.part):
+            for i in range(self.opt.part):
                 partA[i] = torch.flatten(x[:, i:i+1, :], 1)
                 name = 'classifierA'+str(i)
                 c = getattr(self, name)
@@ -273,10 +273,29 @@ class PCB_Effi_test(nn.Module):
         self.model = model.model
         self.avgpool = model.avgpool
 
+        for i in range(self.opt.nparts):
+            name = 'classifierA'+str(i)
+            c = getattr(model, name)
+            setattr(self, name, c)
+
     def forward(self, x):
         x = self.model.extract_features(x)
         x = self.avgpool(x)
 
-        y = x.view(x.size(0), x.size(1), x.size(2))
+        part = {}
+        y = []
+
+        for i in range(self.opt.part):
+            part[i] = torch.flatten(x[:, i:i+1, :], 1)
+            name = 'classifierA'+str(i)
+            c = getattr(self, name)
+            modulelist = list(c.features.modules())
+            print(len(modulelist))
+            for l in modulelist[:2]:
+                part[i] = l(part[i])
+            y.append(part[i])
+
+        y = torch.cat(y, 2)
+        y = y.view(x.size(0), x.size(1), x.size(2))
         
         return y
