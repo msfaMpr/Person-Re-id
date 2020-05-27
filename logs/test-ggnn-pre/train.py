@@ -9,7 +9,7 @@ from shutil import copyfile
 #from PIL import Image
 
 from samplers import RandomIdentitySampler
-from datasets import init_dataset, ImageDataset, VideoDataset
+from datasets import init_dataset, ImageDataset
 from losses.triplet_loss import TripletLoss, CrossEntropyLabelSmooth
 from losses.center_loss import CenterLoss
 
@@ -264,27 +264,25 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                     loss = loss_func(part[0], features, labels)
                     for i in range(1, num_part):
                         loss += loss_func(part[i], features, labels)
-
-                    for i in range(num_part-1):
-                        loss += loss_func(outputs['PCB'][num_part+i], features, labels)
-
-                    for i in range(num_part-2):
-                        loss + loss_func(outputs['PCB']
-                                         [2*num_part+i-1], features, labels)
-
-                    for i in range(num_part-3):
-                        loss + loss_func(outputs['PCB']
-                                         [3*num_part+i-3], features, labels)
-
-                    for i in range(5):
-                        loss += loss_func(outputs['PCB'][10+i], features, labels)
-
+                    
                     if opt.LSTM:
-                        loss /= 10.0
                         loss += loss_func(outputs['LSTM'], features, labels)
                     if opt.GGNN:
-                        loss /= 10.0
                         loss += loss_func(outputs['GGNN'], features, labels)
+
+                    # for i in range(num_part-1):
+                    #     loss += loss_func(outputs['PCB'][num_part+i], labels)
+
+                    # for i in range(num_part-2):
+                    #     loss + loss_func(outputs['PCB']
+                    #                      [2*num_part+i-1], labels)
+
+                    # for i in range(num_part-3):
+                    #     loss + loss_func(outputs['PCB']
+                    #                      [3*num_part+i-3], labels)
+
+                    # for i in range(5):
+                    #     loss += loss_func(outputs['PCB'][10+i], labels)
 
                 # backward + optimize only if in training phase
                 if epoch < opt.warm_epoch and phase == 'train':
@@ -392,14 +390,14 @@ elif opt.backbone == 'EfficientNet-B0':
     model = PCB_Effi(opt)
 
 if opt.LSTM:
-    model_name = 'test-pcb-ac'
+    model_name = 'PCB-256_dim_cls'
     model = load_network(model, model_name)
     model = PCB_Effi_LSTM(model)
     # model_name = 'LSTM'
     # model = load_network(model, model_name)
 
 if opt.GGNN:
-    model_name = 'test-pcb-ac'
+    model_name = 'PCB-256_dim_cls'
     model = load_network(model, model_name)
     model = PCB_Effi_GGNN(model)
     # model_name = 'GGNN'
@@ -437,21 +435,21 @@ else:
         + list(map(id, model.classifierA2.parameters()))
         + list(map(id, model.classifierA3.parameters()))
 
-        + list(map(id, model.classifierB0.parameters()))
-        + list(map(id, model.classifierB1.parameters()))
-        + list(map(id, model.classifierB2.parameters()))
+        # + list(map(id, model.classifierB0.parameters()))
+        # + list(map(id, model.classifierB1.parameters()))
+        # + list(map(id, model.classifierB2.parameters()))
 
-        + list(map(id, model.classifierC0.parameters()))
-        + list(map(id, model.classifierC1.parameters()))
+        # + list(map(id, model.classifierC0.parameters()))
+        # + list(map(id, model.classifierC1.parameters()))
 
-        + list(map(id, model.classifierD0.parameters()))
+        # + list(map(id, model.classifierD0.parameters()))
 
-        + list(map(id, model.classifierB3.parameters()))
-        + list(map(id, model.classifierB4.parameters()))
-        + list(map(id, model.classifierB5.parameters()))
+        # + list(map(id, model.classifierB3.parameters()))
+        # + list(map(id, model.classifierB4.parameters()))
+        # + list(map(id, model.classifierB5.parameters()))
 
-        + list(map(id, model.classifierC2.parameters()))
-        + list(map(id, model.classifierC3.parameters()))
+        # + list(map(id, model.classifierC2.parameters()))
+        # + list(map(id, model.classifierC3.parameters()))
 
         + list(map(id, model.classifier.parameters()))
     )
@@ -468,26 +466,7 @@ else:
         {'params': model.classifierA1.parameters(), 'lr': 0.0035},
         {'params': model.classifierA2.parameters(), 'lr': 0.0035},
         {'params': model.classifierA3.parameters(), 'lr': 0.0035},
-        
-        {'params': model.classifierB0.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB1.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB2.parameters(), 'lr': 0.0035},
-
-        {'params': model.classifierC0.parameters(), 'lr': 0.0035},
-        {'params': model.classifierC1.parameters(), 'lr': 0.0035},
-
-        {'params': model.classifierD0.parameters(), 'lr': 0.0035},
-
-        {'params': model.classifierB3.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB4.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB5.parameters(), 'lr': 0.0035},
-
-        {'params': model.classifierC2.parameters(), 'lr': 0.0035},
-        {'params': model.classifierC3.parameters(), 'lr': 0.0035},
-
-        {'params': model.classifier.parameters(), 'lr': 0.0035},
-
-        ])
+        {'params': model.classifier.parameters(), 'lr': 0.0035}])
 
     # optimizer = optim.SGD([
     #     {'params': base_params, 'lr': 0.1*opt.lr},

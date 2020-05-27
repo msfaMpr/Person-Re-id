@@ -9,7 +9,7 @@ from shutil import copyfile
 #from PIL import Image
 
 from samplers import RandomIdentitySampler
-from datasets import init_dataset, ImageDataset, VideoDataset
+from datasets import init_dataset, ImageDataset
 from losses.triplet_loss import TripletLoss, CrossEntropyLabelSmooth
 from losses.center_loss import CenterLoss
 

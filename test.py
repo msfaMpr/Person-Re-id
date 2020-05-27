@@ -55,7 +55,7 @@ opt.single_cls = config['single_cls']
 opt.backbone = config['backbone']
 opt.freeze_backbone = config['freeze_backbone']
 opt.use_triplet_loss = config['use_triplet_loss']
-opt.bidirectional = config['bidirectional']
+# opt.bidirectional = config['bidirectional']
 
 if 'nclasses' in config:  # tp compatible with old config files
     opt.nclasses = config['nclasses']
@@ -146,7 +146,7 @@ def extract_feature(model, dataloaders):
         n, c, h, w = img.size()
         # count += n
         # print(count)
-        ff = torch.FloatTensor(n, 1280, 2*opt.nparts).zero_().cuda()
+        ff = torch.FloatTensor(n, 256, opt.nparts).zero_().cuda()
 
         for i in range(2):
             if(i == 1):

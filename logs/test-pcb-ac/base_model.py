@@ -178,6 +178,7 @@ class PCB_Effi(nn.Module):
                 setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
             for i in range(self.opt.nparts-2):
+
                 name = 'classifierC'+str(i)
                 setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
@@ -281,20 +282,19 @@ class PCB_Effi_test(nn.Module):
         x = self.model.extract_features(x)
         x = self.avgpool(x)
 
-        # part = {}
-        # predict = {}
-        # y = []
+        part = {}
+        predict = {}
+        y = []
 
-        # x = x.transpose(1, 2)
-        # for i in range(self.opt.nparts):
-        #     part[i] = torch.flatten(x[:, i:i+1, :], 1)
-        #     name = 'classifierA'+str(i)
-        #     c = getattr(self, name)
-        #     predict[i] = c.add_block(part[i])
-        #     y.append(predict[i])
+        x = x.transpose(1, 2)
+        for i in range(self.opt.nparts):
+            part[i] = torch.flatten(x[:, i:i+1, :], 1)
+            name = 'classifierA'+str(i)
+            c = getattr(self, name)
+            predict[i] = c.add_block(part[i])
+            y.append(predict[i])
 
-        # y = torch.cat(y, -1).view(-1, 256, 4)
-
-        y = x.view(x.size(0), x.size(1), x.size(2))
+        y = torch.cat(y, -1).view(-1, 256, 4)
+        # y = y.view(x.size(0), x.size(1), x.size(2))
 
         return y

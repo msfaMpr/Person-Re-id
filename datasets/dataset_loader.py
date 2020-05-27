@@ -5,7 +5,9 @@
 """
 
 import os.path as osp
+import numpy as np
 from PIL import Image
+import torch
 from torch.utils.data import Dataset
 
 
@@ -43,3 +45,48 @@ class ImageDataset(Dataset):
             img = self.transform(img)
 
         return img, pid, camid, img_path
+
+
+class VideoDataset(Dataset):
+    """Image Person ReID Dataset"""
+
+    def __init__(self, dataset, seq_len, transform=None):
+        self.dataset = dataset
+        self.transform = transform
+        self.seq_len = seq_len
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index):
+        img_paths, pid, camid = self.dataset[index]
+        num_imgs = len(img_paths)
+
+        # Evenly samples seq_len images from a tracklet
+        if num_imgs >= self.seq_len:
+            num_imgs -= num_imgs % self.seq_len
+            indices = np.arange(0, num_imgs, num_imgs / self.seq_len)
+        else:
+            # if num_imgs is smaller than seq_len, simply replicate the last image
+            # until the seq_len requirement is satisfied
+            indices = np.arange(0, num_imgs)
+            num_pads = self.seq_len - num_imgs
+            indices = np.concatenate(
+                [
+                    indices,
+                    np.ones(num_pads).astype(np.int32) * (num_imgs-1)
+                ]
+            )
+        assert len(indices) == self.seq_len
+
+        imgs = []
+        for index in indices:
+            img_path = img_paths[int(index)]
+            img = read_image(img_path)
+            if self.transform is not None:
+                img = self.transform(img)
+            img = img.unsqueeze(0) # img must be torch.Tensor
+            imgs.append(img)
+        imgs = torch.cat(imgs, dim=0)
+
+        return imgs, pid, camid

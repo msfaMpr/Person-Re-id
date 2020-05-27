@@ -8,6 +8,7 @@ from .dukemtmcreid import DukeMTMCreID
 from .market1501 import Market1501
 from .msmt17 import MSMT17
 from .veri import VeRi
+from .mars import Mars
 from .dataset_loader import ImageDataset
 
 __factory = {
@@ -16,6 +17,7 @@ __factory = {
     'dukemtmc': DukeMTMCreID,
     'msmt17': MSMT17,
     'veri': VeRi,
+    'mars': Mars,
 }
 
 

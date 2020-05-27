@@ -91,7 +91,7 @@ class PCB_Effi_GGNN(nn.Module):
         
         self.state_dim = model.feature_dim
         self.n_node = self.opt.nparts
-        self.n_steps = 1
+        self.n_steps = 5
 
         am = torch.Tensor(create_adjacency_matrix(
             self.graph, self.n_node, self.n_edge_types)).cuda()

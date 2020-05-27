@@ -34,8 +34,6 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-version = torch.__version__
-
 
 ######################################################################
 # Options
@@ -221,10 +219,6 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                     inputs, labels = data
                 now_batch_size, _, _, _ = inputs.shape
 
-                # if now_batch_size < opt.batchsize:  # skip the last batch
-                #     continue
-                # print(inputs.shape)
-
                 # wrap them in Variable
                 if use_gpu:
                     inputs = Variable(inputs.cuda().detach())
@@ -300,11 +294,7 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                     optimizer.step()
 
                 # statistics
-                # for the new version like 0.4.0, 0.5.0 and 1.0.0
-                if int(version[0]) > 0 or int(version[2]) > 3:
-                    running_loss += loss.item() * now_batch_size
-                else:  # for the old version like 0.3.0 and 0.3.1
-                    running_loss += loss.data[0] * now_batch_size
+                running_loss += loss.item() * now_batch_size
                 running_corrects += float(torch.sum(preds == labels.data))
 
             scheduler.step()
