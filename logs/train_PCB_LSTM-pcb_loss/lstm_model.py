@@ -9,9 +9,12 @@ from .base_model import ClassBlock
 
 
 class PCB_Effi_LSTM(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, train_backbone=False):
         super(PCB_Effi_LSTM, self).__init__()
-        self.opt = model.opt
+
+        self.train_backbone = train_backbone
+        self.class_num = model.class_num
+        self.part = model.part
         self.model = model.model
         self.avgpool = model.avgpool
         self.dropout = nn.Dropout(p=0.5)
@@ -20,48 +23,49 @@ class PCB_Effi_LSTM(nn.Module):
         # self.glob_avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # self.glob_dropout = nn.Dropout(p=0.5)
 
-        self.hiddenDim = self.feature_dim // 2 if self.opt.bidirectional else self.feature_dim
-        self.lstm = nn.LSTM(self.feature_dim, self.hiddenDim, bidirectional=self.opt.bidirectional)
+        self.hiddenDim = self.feature_dim // 2
+        self.lstm = nn.LSTM(
+            self.feature_dim, self.hiddenDim, bidirectional=True)
 
-        self.classifier = ClassBlock(self.opt.nparts*self.feature_dim, self.opt.nclasses,
+        self.classifier = ClassBlock(self.part * self.feature_dim, self.class_num,
                                      droprate=0.5, relu=False, bnorm=True, num_bottleneck=256)
 
-        for i in range(self.opt.nparts):
+        for i in range(self.part):
             name = 'classifierA'+str(i)
-            setattr(self, name, ClassBlock(self.feature_dim, self.opt.nclasses,
+            setattr(self, name, ClassBlock(2 * self.hiddenDim, self.class_num,
                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-1):
         #     name = 'classifierB'+str(i)
-        #     setattr(self, name, ClassBlock(4*self.hiddenDim, self.opt.nclasses,
+        #     setattr(self, name, ClassBlock(4*self.hiddenDim, self.class_num,
         #                                    droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-1):
         #     name = 'classifierB'+str(i+self.part-1)
-        #     setattr(self, name, ClassBlock(4*self.hiddenDim, self.opt.nclasses,
+        #     setattr(self, name, ClassBlock(4*self.hiddenDim, self.class_num,
         #                                    droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-2):
         #     name = 'classifierC'+str(i)
-        #     setattr(self, name, ClassBlock(6*self.hiddenDim, self.opt.nclasses,
+        #     setattr(self, name, ClassBlock(6*self.hiddenDim, self.class_num,
         #                                    droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-2):
         #     name = 'classifierC'+str(i+self.part-2)
-        #     setattr(self, name, ClassBlock(6*self.hiddenDim, self.opt.nclasses,
+        #     setattr(self, name, ClassBlock(6*self.hiddenDim, self.class_num,
         #                                    droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
         # for i in range(self.part-3):
         #     name = 'classifierD'+str(i)
-        #     setattr(self, name, ClassBlock(8*self.hiddenDim, self.opt.nclasses,
+        #     setattr(self, name, ClassBlock(8*self.hiddenDim, self.class_num,
         #                                    droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
-        if self.opt.freeze_backbone:
+        if self.train_backbone:
+            x = self.model.extract_features(x)
+        else:
             with torch.no_grad():
                 x = self.model.extract_features(x)
-        else:
-            x = self.model.extract_features(x)
 
         # gx = self.glob_avgpool(x)
         # gx = self.glob_dropout(gx)
@@ -82,7 +86,7 @@ class PCB_Effi_LSTM(nn.Module):
 
         lx = x.transpose(1, 0)  # pxbx1280
         lx, hn = self.lstm(lx, (h0, c0))
-        lx = lx.transpose(1, 0)  # bxpx2h
+        lx = lx.transpose(1, 0)  # bxpxh
         lx = torch.flatten(lx, 1)
 
         y = {}
@@ -93,7 +97,7 @@ class PCB_Effi_LSTM(nn.Module):
         y['PCB'] = []
         # get six part feature batchsize*1280*4
 
-        for i in range(self.opt.nparts):
+        for i in range(self.part):
             partA[i] = torch.flatten(x[:, i:i+1, :], 1)
             name = 'classifierA'+str(i)
             c = getattr(self, name)
@@ -147,9 +151,9 @@ class PCB_Effi_LSTM(nn.Module):
 class PCB_Effi_LSTM_test(nn.Module):
     def __init__(self, model):
         super(PCB_Effi_LSTM_test, self).__init__()
-        self.opt = model.opt
+        self.part = model.part
         self.model = model.model
-        self.avgpool = nn.AdaptiveAvgPool2d((self.opt.nparts, 1))
+        self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
 
         # self.glob_avgpool = model.glob_avgpool
 
@@ -163,22 +167,21 @@ class PCB_Effi_LSTM_test(nn.Module):
         # gx = gx.squeeze()
 
         x = self.avgpool(x)
-        x = x.squeeze() # bx1280xp
+        x = x.squeeze()
 
-        batchSize, seq_len = x.size(0), x.size(2)
+        # batchSize, seq_len = x.size(0), x.size(2)
+        #
+        # h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
+        # # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        # c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
+        # # c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
+        #
+        # x = x.transpose(2, 1)  # bxpx1280
+        # x = x.transpose(1, 0)  # pxbx1280
+        #
+        # output, hn = self.lstm(x, (h0, c0))
+        #
+        # x = output.transpose(1, 0)  # bxpxh
+        # x = x.transpose(2, 1)  # bxhxp
 
-        h0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # h0 = gx.view(2, gx.size(0), gx.size(1) // 2)
-        c0 = Variable(torch.zeros(2, x.size(0), self.hiddenDim)).cuda()
-        # c0 = gx.view(2, gx.size(0), gx.size(1) // 2)
-
-        lx = x.transpose(2, 1)  # bxpx1280
-        lx = lx.transpose(1, 0)  # pxbx1280
-        lx, hn = self.lstm(lx, (h0, c0))
-        lx = lx.transpose(1, 0)  # bxpx1280
-        lx = lx.transpose(2, 1) # bx1280*p
-
-        y = torch.cat([x, lx], 2)
-        # y = x
-
-        return y
+        return x

@@ -74,7 +74,7 @@ class Propogator(nn.Module):
 
 class PCB_Effi_GGNN(nn.Module):
 
-    def __init__(self, model, freeze_backbone=False):
+    def __init__(self, model):
         super(PCB_Effi_GGNN, self).__init__()
         self.opt = model.opt
         self.model = model.model
@@ -162,10 +162,9 @@ class PCB_Effi_GGNN(nn.Module):
                 x = x.squeeze()  # b*1280*4
         else:
             x = self.model.extract_features(x)
-
-        x = self.avgpool(x)  # b*1280*4*1
-        x = self.dropout(x)
-        x = x.squeeze()  # b*1280*4
+            x = self.avgpool(x)  # b*1280*4*1
+            x = self.dropout(x)
+            x = x.squeeze()  # b*1280*4
 
         x = torch.transpose(x, 1, 2)  # b*4*1280
 

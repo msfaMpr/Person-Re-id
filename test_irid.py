@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import print_function, division
 
 import argparse
@@ -28,22 +26,19 @@ from models.ggnn_model import PCB_Effi_GGNN, PCB_Effi_GGNN_test
 # --------
 
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu_ids', default='0', type=str,
-                    help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--which_epoch', default='last',
-                    type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir', default='../Market/pytorch',
-                    type=str, help='./test_data')
-parser.add_argument('--name', default='ft_ResNet50',
-                    type=str, help='save model path')
+parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
+parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
+parser.add_argument('--test_dir', default='../Market/pytorch', type=str, help='./test_data')
+parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
+parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
-parser.add_argument('--use_dense', action='store_true', help='use densenet121')
-parser.add_argument('--PCB', action='store_true', help='use PCB')
+parser.add_argument('--backbone', default='EfficientNet-B0', type=str, help='backbone model name')
+parser.add_argument('--single_cls', action='store_true', help='use signle classifier')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
-parser.add_argument('--ms', default='1', type=str,
-                    help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
+parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
+parser.add_argument('--ms', default='1', type=str, help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
 
 opt = parser.parse_args()
 
@@ -52,12 +47,15 @@ opt = parser.parse_args()
 config_path = os.path.join('./logs', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
     config = yaml.load(stream)
-opt.PCB = config['PCB'] if opt.PCB else False
-opt.LSTM = config['LSTM'] if opt.LSTM else False
-opt.GGNN = config['GGNN'] if opt.GGNN else False
-opt.use_dense = config['use_dense']
-opt.use_NAS = config['use_NAS']
-opt.stride = config['stride']
+
+opt.LSTM = config['LSTM']
+opt.GGNN = config['GGNN']
+opt.nparts = config['nparts']
+opt.single_cls = config['single_cls']
+opt.backbone = config['backbone']
+opt.freeze_backbone = config['freeze_backbone']
+opt.use_triplet_loss = config['use_triplet_loss']
+# opt.bidirectional = config['bidirectional']
 
 if 'nclasses' in config:  # tp compatible with old config files
     opt.nclasses = config['nclasses']
@@ -93,31 +91,11 @@ if len(gpu_ids) > 0:
 # ---------
 #
 
-# We will use torchvision and torch.utils.data packages for loading the
-# data.
-#
 data_transforms = transforms.Compose([
-    transforms.Resize((256, 128), interpolation=3),
+    transforms.Resize((384, 128), interpolation=3),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    # Ten Crop
-    # transforms.TenCrop(224),
-    # transforms.Lambda(lambda crops: torch.stack(
-    #   [transforms.ToTensor()(crop)
-    #      for crop in crops]
-    # )),
-    # transforms.Lambda(lambda crops: torch.stack(
-    #   [transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(crop)
-    #       for crop in crops]
-    # ))
 ])
-
-if opt.PCB:
-    data_transforms = transforms.Compose([
-        transforms.Resize((384, 192), interpolation=3),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
 
 data_dir = test_dir
 
@@ -168,14 +146,7 @@ def extract_feature(model, dataloaders):
         n, c, h, w = img.size()
         # count += n
         # print(count)
-        ff = torch.FloatTensor(n, 512).zero_().cuda()
-        if opt.PCB and not opt.LSTM and not opt.GGNN:
-            ff = torch.FloatTensor(
-                n, 1280, 4).zero_().cuda()  # we have six parts
-        if opt.LSTM:
-            ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
-        if opt.GGNN:
-            ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
+        ff = torch.FloatTensor(n, 256, opt.nparts).zero_().cuda()
 
         for i in range(2):
             if(i == 1):
@@ -190,16 +161,9 @@ def extract_feature(model, dataloaders):
                 ff += outputs
         # norm feature
 
-        if opt.PCB:
-            # feature size (n,2048,6)
-            # 1. To treat every part equally, I calculate the norm for every 2048-dim part feature.
-            # 2. To keep the cosine score==1, sqrt(6) is added to norm the whole feature (2048*6).
-            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
-            ff = ff.div(fnorm.expand_as(ff))
-            ff = ff.view(ff.size(0), -1)
-        else:
-            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
-            ff = ff.div(fnorm.expand_as(ff))
+        fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
+        ff = ff.div(fnorm.expand_as(ff))
+        ff = ff.view(ff.size(0), -1)
 
         features = torch.cat((features, ff.data.cpu()), 0)
     return features
@@ -239,8 +203,10 @@ if opt.multi:
 
 print('-------test-----------')
 
-if opt.PCB:
-    model_structure = PCB_Effi(opt.nclasses)
+if opt.backbone == 'ResNet50':
+    model_structure = PCB(opt)
+elif opt.backbone == 'EfficientNet-B0':
+    model_structure = PCB_Effi(opt)
 
 if opt.LSTM:
     model_structure = PCB_Effi_LSTM(model_structure)
@@ -248,26 +214,19 @@ if opt.LSTM:
 if opt.GGNN:
     model_structure = PCB_Effi_GGNN(model_structure)
 
-# if opt.fp16:
-#    model_structure = network_to_half(model_structure)
-
 model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
-if opt.PCB and not opt.LSTM and not opt.GGNN:
-    # if opt.fp16:
-    #    model = PCB_test(model[1])
-    # else:
-    model = PCB_Effi_test(model)
+if not opt.LSTM and not opt.GGNN:
+    if opt.backbone == 'ResNet50':
+        model = PCB_test(model)
+    elif opt.backbone == 'EfficientNet-B0':
+        model = PCB_Effi_test(model)
 elif opt.LSTM:
     model = PCB_Effi_LSTM_test(model)
 elif opt.GGNN:
     model = PCB_Effi_GGNN_test(model)
 else:
-    # if opt.fp16:
-    #model[1].model.fc = nn.Sequential()
-    #model[1].classifier = nn.Sequential()
-    # else:
     model.classifier.classifier = nn.Sequential()
 
 # Change to test mode
@@ -290,6 +249,7 @@ scipy.io.savemat('pytorch_result.mat', result)
 print(opt.name)
 result = './logs/%s/result.txt' % opt.name
 os.system('python evaluate_gpu.py | tee -a %s' % result)
+# os.system('python evaluate_rerank.py | tee -a %s' % result)
 
 if opt.multi:
     result = {'mquery_f': mquery_feature.numpy(
