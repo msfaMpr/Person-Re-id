@@ -146,7 +146,7 @@ def extract_feature(model, dataloaders):
         n, c, h, w = img.size()
         # count += n
         # print(count)
-        ff = torch.FloatTensor(n, 320, opt.nparts).zero_().cuda()
+        ff = torch.FloatTensor(n, 256, opt.nparts).zero_().cuda()
 
         for i in range(2):
             if(i == 1):

@@ -320,8 +320,7 @@ class PCB_Effi_test(nn.Module):
             part[i] = torch.flatten(x[:, i:i+1, :], 1)
             name = 'classifierA'+str(i)
             c = getattr(self, name)
-            predict[i] = c.encoder(part[i])
-            predict[i] = c.bn_layer(predict[i])
+            predict[i] = c.add_block(part[i])
             y.append(predict[i])
 
         y = torch.cat(y, -1).view(-1, 256, 4)

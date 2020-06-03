@@ -7,9 +7,19 @@ import yaml
 import math
 from shutil import copyfile
 #from PIL import Image
+
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+
+from datasets import init_dataset, ImageDataset, VideoDataset, RandomIdentitySampler
+from utils.loss_triplet import TripletLoss, CrossEntropyLabelSmooth
+from utils.loss_center import CenterLoss
+from utils.random_erasing import RandomErasing
+
+from models.ggnn_model import PCB_Effi_GGNN
+from models.lstm_model import PCB_Effi_LSTM
+from models.base_model import PCB, PCB_Effi
 
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
@@ -21,14 +31,6 @@ from torch.optim import lr_scheduler
 import torch.optim as optim
 import torch.nn as nn
 import torch
-
-from datasets import init_dataset, ImageDataset, VideoDataset, RandomIdentitySampler
-from utils.loss_triplet import TripletLoss, CrossEntropyLabelSmooth
-from utils.loss_center import CenterLoss
-from utils.random_erasing import RandomErasing
-
-from models.vrid_model import VRidGGNN
-from models.base_model import PCB, PCB_Effi
 
 
 ######################################################################
@@ -43,7 +45,7 @@ parser.add_argument('--name', default='ResNet50', type=str, help='output model n
 parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data')
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
-parser.add_argument('--batchsize', default=16, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
 parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--warm_epoch', default=10, type=int, help='the first K epoch that needs warm up')
@@ -87,6 +89,58 @@ if len(gpu_ids) > 0:
 # --------
 #
 
+transform_train_list = [
+    transforms.Resize((384, 128), interpolation=3),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+]
+transform_val_list = [
+    transforms.Resize(size=(384, 128), interpolation=3),  # Image.BICUBIC
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+]
+
+if opt.erasing_p > 0:
+    transform_train_list = transform_train_list + \
+        [RandomErasing(probability=opt.erasing_p, mean=[0.0, 0.0, 0.0])]
+
+if opt.color_jitter:
+    transform_train_list = [transforms.ColorJitter(
+        brightness=0.1, contrast=0.1, saturation=0.1, hue=0)] + transform_train_list
+
+print(transform_train_list)
+
+data_transforms = {
+    'train': transforms.Compose(transform_train_list),
+    'val': transforms.Compose(transform_val_list),
+}
+
+train_all = ''
+if opt.train_all:
+    train_all = '_all'
+
+image_datasets = {}
+image_datasets['train'] = datasets.ImageFolder(os.path.join(
+    opt.data_dir, 'train' + train_all), data_transforms['train'])
+image_datasets['val'] = datasets.ImageFolder(
+    os.path.join(opt.data_dir, 'val'), data_transforms['val'])
+
+dataloaders = {x: torch.utils.data.DataLoader(
+    image_datasets[x], batch_size=opt.batchsize, drop_last=True, shuffle=True, num_workers=8, pin_memory=True) for x in ['train', 'val']}
+
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+
+class_names = image_datasets['train'].classes
+
+use_gpu = torch.cuda.is_available()
+
+
+######################################################################
+# New Data Loader
+# --------
+#
+
 normalize_transform = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 train_transforms = T.Compose([
@@ -105,20 +159,15 @@ train_transforms = T.Compose([
 #     normalize_transform
 # ])
 
-dataset = init_dataset('mars', root='../')
-dataset_sizes = {}
-dataset_sizes['train'] = dataset.num_train_imgs
-train_set = VideoDataset(dataset.train, 4, train_transforms)
-dataloaders = {}
+dataset = init_dataset('market1501', root='../')
+train_set = ImageDataset(dataset.train, train_transforms)
 dataloaders['train'] = DataLoader(
     train_set, batch_size=opt.batchsize, drop_last=True,
     sampler=RandomIdentitySampler(dataset.train, opt.batchsize, 4), num_workers=8)
 
-# val_set = VideoDataset(dataset.query + dataset.gallery, 4, val_transforms)
+# val_set = ImageDataset(dataset.query + dataset.gallery, val_transforms)
 # dataloaders['val'] = DataLoader(
 #     val_set, batch_size=opt.batchsize, drop_last=True, shuffle=False, num_workers=8)
-
-use_gpu = torch.cuda.is_available()
 
 
 ######################################################################
@@ -139,14 +188,14 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
     warm_up = 0.1  # We start from the 0.1*lrRate
     warm_iteration = round(
-        dataset_sizes['train'] / (opt.batchsize * 4))*opt.warm_epoch  # first 5 epoch
+        dataset_sizes['train'] / opt.batchsize)*opt.warm_epoch  # first 5 epoch
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch + 1, num_epochs))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train']:
+        for phase in ['train', 'val']:
 
             if phase == 'train':
                 model.train(True)  # Set model to training mode
@@ -163,11 +212,10 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                 # get the inputs
                 if phase == 'train':
-                    inputs, labels, _ = data
+                    inputs, labels, _, _ = data
                 else:
                     inputs, labels = data
-
-                now_batch_size, _, _, _, _ = inputs.shape
+                now_batch_size, _, _, _ = inputs.shape
 
                 # wrap them in Variable
                 if use_gpu:
@@ -195,7 +243,6 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                         features = None
 
                 if opt.single_cls:
-                    outputs = outputs['GGNN']
                     _, preds = torch.max(outputs.data, 1)
                     loss = loss_func(outputs, features, labels)
                 else:
@@ -231,10 +278,10 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                         loss += loss_func(outputs['PCB'][10+i], features, labels)
 
                     if opt.LSTM:
-                        loss /= 5.0
+                        loss /= 10.0
                         loss += loss_func(outputs['LSTM'], features, labels)
                     if opt.GGNN:
-                        loss /= 5.0
+                        loss /= 10.0
                         loss += loss_func(outputs['GGNN'], features, labels)
 
                 # backward + optimize only if in training phase
@@ -262,7 +309,7 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
             y_err[phase].append(1.0-epoch_acc)
 
             # deep copy the model
-            if phase == 'train':
+            if phase == 'val':
                 last_model_wts = model.state_dict()
                 if epoch % 10 == 9:
                     save_network(model, epoch+1)
@@ -297,9 +344,9 @@ ax1 = fig.add_subplot(122, title="top1err")
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
     ax0.plot(x_epoch, y_loss['train'], 'bo-', label='train')
-    # ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
+    ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
     ax1.plot(x_epoch, y_err['train'], 'bo-', label='train')
-    # ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
+    ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
@@ -335,18 +382,26 @@ def load_network(network, model_name):
 # --------
 #
 
-opt.nclasses = dataset.num_train_pids
+opt.nclasses = len(class_names)
 
 if opt.backbone == 'ResNet50':
     model = PCB(opt)
 elif opt.backbone == 'EfficientNet-B0':
     model = PCB_Effi(opt)
 
-# model_name = 'test-pcb-ac'
-# model = load_network(model, model_name)
-model = VRidGGNN(model)
-# model_name = 'VRid'
-# model = load_network(model, model_name)
+if opt.LSTM:
+    model_name = 'test-pcb-ac'
+    model = load_network(model, model_name)
+    model = PCB_Effi_LSTM(model)
+    # model_name = 'LSTM'
+    # model = load_network(model, model_name)
+
+if opt.GGNN:
+    model_name = 'test-pcb-ac'
+    model = load_network(model, model_name)
+    model = PCB_Effi_GGNN(model)
+    # model_name = 'GGNN'
+    # model = load_network(model, model_name)
 
 print(model)
 
@@ -375,9 +430,6 @@ else:
     elif opt.backbone == 'EfficientNet-B0':
         ignored_params = list(map(id, model.model._fc.parameters()))
     ignored_params += (
-        list(map(id, model.classifier.parameters()))
-        )
-    ignored_params += (
         list(map(id, model.classifierA0.parameters()))
         + list(map(id, model.classifierA1.parameters()))
         + list(map(id, model.classifierA2.parameters()))
@@ -398,6 +450,8 @@ else:
 
         + list(map(id, model.classifierC2.parameters()))
         + list(map(id, model.classifierC3.parameters()))
+
+        # + list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
@@ -429,7 +483,7 @@ else:
         {'params': model.classifierC2.parameters(), 'lr': 0.0035},
         {'params': model.classifierC3.parameters(), 'lr': 0.0035},
 
-        {'params': model.classifier.parameters(), 'lr': 0.0035},
+        # {'params': model.classifier.parameters(), 'lr': 0.0035},
 
         ])
 
@@ -474,9 +528,12 @@ dir_name = os.path.join('./logs', opt.name)
 if not os.path.isdir(dir_name):
     os.mkdir(dir_name)
 # record every run
-copyfile('./train_vrid.py', dir_name+'/train_vrid.py')
+copyfile('./train_irid.py', dir_name+'/train_irid.py')
 copyfile('models/base_model.py', dir_name+'/base_model.py')
-copyfile('models/vrid_model.py', dir_name+'/vrid_model.py')
+if opt.LSTM:
+    copyfile('models/lstm_model.py', dir_name+'/lstm_model.py')
+if opt.GGNN:
+    copyfile('models/ggnn_model.py', dir_name+'/ggnn_model.py')
 
 # save opts
 with open('%s/opts.yaml' % dir_name, 'w') as fp:
@@ -501,4 +558,4 @@ def loss_func(score, feat, target):
             return F.cross_entropy(score, target)
 
 model = train_model(model, loss_func, optimizer,
-                    exp_lr_scheduler, num_epochs=360)
+                    exp_lr_scheduler, num_epochs=120)

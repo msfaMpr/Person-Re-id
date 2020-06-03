@@ -20,25 +20,11 @@ def weights_init_kaiming(m):
         init.constant_(m.bias.data, 0.0)
 
 
-def weights_init_encoder(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
-        init.constant_(m.bias.data, 0.0)
-
-
-def weights_init_bn_layer(m):
-    classname = m.__class__.__name__
-    if classname.find('BatchNorm1d') != -1:
-        init.normal_(m.weight.data, 1.0, 0.02)
-        init.constant_(m.bias.data, 0.0)
-
-
 def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         init.normal_(m.weight.data, std=0.001)
-        init.constant_(m.bias, 0.0)
+        nn.init.constant_(m.bias, 0.0)
 
 
 # Defines the new fc layer and classification layer
@@ -48,38 +34,35 @@ class ClassBlock(nn.Module):
     def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, num_bottleneck=512, linear=True, return_f=False):
         super(ClassBlock, self).__init__()
         self.return_f = return_f
-        classifier = []
+        add_block = []
         if linear:
-            encoder = [nn.Linear(input_dim, num_bottleneck)]
-            encoder = nn.Sequential(*encoder)
-            encoder.apply(weights_init_encoder)
+            add_block += [nn.Linear(input_dim, num_bottleneck)]
         else:
             num_bottleneck = input_dim
         if bnorm:
-            bn_layer = [nn.BatchNorm1d(num_bottleneck)]
-            bn_layer = nn.Sequential(*bn_layer)
-            bn_layer.apply(weights_init_bn_layer)
+            add_block += [nn.BatchNorm1d(num_bottleneck)]
         if relu:
-            classifier += [nn.LeakyReLU(0.1)]
+            add_block += [nn.LeakyReLU(0.1)]
         if droprate > 0:
-            classifier += [nn.Dropout(p=droprate)]
+            add_block += [nn.Dropout(p=droprate)]
+        add_block = nn.Sequential(*add_block)
+        add_block.apply(weights_init_kaiming)
+
+        classifier = []
         classifier += [nn.Linear(num_bottleneck, class_num)]
         classifier = nn.Sequential(*classifier)
         classifier.apply(weights_init_classifier)
 
-        self.encoder = encoder
-        self.bn_layer = bn_layer
+        self.add_block = add_block
         self.classifier = classifier
 
     def forward(self, x):
-        x = self.encoder(x)
+        x = self.add_block(x)
         if self.return_f:
             f = x
-            x = self.bn_layer(x)
             x = self.classifier(x)
             return x, f
         else:
-            x = self.bn_layer(x)
             x = self.classifier(x)
             return x
 
@@ -175,45 +158,43 @@ class PCB_Effi(nn.Module):
         self.dropout = nn.Dropout(p=0.5)
 
         self.feature_dim = self.model._fc.in_features
-        self.bottleneck = 256         
-        self.return_f = self.opt.use_triplet_loss
+        self.bottleneck = 512         
 
         if self.opt.single_cls:
             name = 'classifier'
             setattr(self, name, ClassBlock(self.opt.nparts*self.feature_dim,
                                         self.opt.nclasses, droprate=0.5, relu=False,
-                                        bnorm=True, num_bottleneck=self.bottleneck, return_f=self.return_f))
+                                            bnorm=True, num_bottleneck=self.bottleneck))
         else:
             for i in range(self.opt.nparts):
                 name = 'classifierA'+str(i)
                 setattr(self, name, ClassBlock(self.feature_dim, self.opt.nclasses, droprate=0.5,
-                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck,
-                                                                                return_f=self.return_f))
+                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck))
 
-            # for i in range(self.opt.nparts-1):
-            #     name = 'classifierB'+str(i)
-            #     setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5,
-            #                                 relu=False, bnorm=True, num_bottleneck=self.bottleneck))
+            for i in range(self.opt.nparts-1):
+                name = 'classifierB'+str(i)
+                setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck))
 
-            # for i in range(self.opt.nparts-1):
-            #     name = 'classifierB'+str(i+self.opt.nparts-1)
-            #     setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5,
-            #                                 relu=False, bnorm=True, num_bottleneck=self.bottleneck))
+            for i in range(self.opt.nparts-1):
+                name = 'classifierB'+str(i+self.opt.nparts-1)
+                setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck))
 
-            # for i in range(self.opt.nparts-2):
-            #     name = 'classifierC'+str(i)
-            #     setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5,
-            #                                 relu=False, bnorm=True, num_bottleneck=self.bottleneck))
+            for i in range(self.opt.nparts-2):
+                name = 'classifierC'+str(i)
+                setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck))
 
-            # for i in range(self.opt.nparts-2):
-            #     name = 'classifierC'+str(i+self.opt.nparts-2)
-            #     setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5,
-            #                                 relu=False, bnorm=True, num_bottleneck=self.bottleneck))
+            for i in range(self.opt.nparts-2):
+                name = 'classifierC'+str(i+self.opt.nparts-2)
+                setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck))
 
-            # for i in range(self.opt.nparts-3):
-            #     name = 'classifierD'+str(i)
-            #     setattr(self, name, ClassBlock(4*1280, self.opt.nclasses, droprate=0.5,
-            #                                 relu=False, bnorm=True, num_bottleneck=self.bottleneck))
+            for i in range(self.opt.nparts-3):
+                name = 'classifierD'+str(i)
+                setattr(self, name, ClassBlock(4*1280, self.opt.nclasses, droprate=0.5,
+                                            relu=False, bnorm=True, num_bottleneck=self.bottleneck))
 
     def forward(self, x):
         x = self.model.extract_features(x)
@@ -225,71 +206,67 @@ class PCB_Effi(nn.Module):
         partA, partB, partC, partD = {}, {}, {}, {}
         predictA, predictB, predictC, predictD = {}, {}, {}, {}
         y = {}
-        feat = {}
         y['PCB'] = []
 
         if self.opt.single_cls:
-            if self.return_f:
-                y, feat = self.classifier(x)
+            feat = self.bottleneck(x)
+            y = self.classifier(feat)
+
+            if self.opt.use_triplet_loss:
                 return y, feat
             else:
-                y = self.classifier(x)
                 return y
+
         else:
             for i in range(self.opt.nparts):
                 partA[i] = torch.flatten(x[:, i:i+1, :], 1)
                 name = 'classifierA'+str(i)
                 c = getattr(self, name)
-
-                if self.return_f:
-                    predictA[i], feat[i] = c(partA[i])
-                else:
-                    predictA[i] = c(partA[i])
-
+                predictA[i] = c(partA[i])
                 y['PCB'].append(predictA[i])
 
-            # for i in range(self.opt.nparts-1):
-            #     partB[i] = torch.flatten(x[:, i:i+2, :], 1)
-            #     name = 'classifierB'+str(i)
-            #     c = getattr(self, name)
-            #     predictB[i] = c(partB[i])
-            #     y['PCB'].append(predictB[i])
+            for i in range(self.opt.nparts-1):
+                partB[i] = torch.flatten(x[:, i:i+2, :], 1)
+                name = 'classifierB'+str(i)
+                c = getattr(self, name)
+                predictB[i] = c(partB[i])
+                y['PCB'].append(predictB[i])
 
-            # for i in range(self.opt.nparts-2):
-            #     partC[i] = torch.flatten(x[:, i:i+3, :], 1)
-            #     name = 'classifierC'+str(i)
-            #     c = getattr(self, name)
-            #     predictC[i] = c(partC[i])
-            #     y['PCB'].append(predictC[i])
+            for i in range(self.opt.nparts-2):
+                partC[i] = torch.flatten(x[:, i:i+3, :], 1)
+                name = 'classifierC'+str(i)
+                c = getattr(self, name)
+                predictC[i] = c(partC[i])
+                y['PCB'].append(predictC[i])
 
-            # for i in range(self.opt.nparts-3):
-            #     partD[i] = torch.flatten(x[:, i:i+4, :], 1)
-            #     name = 'classifierD'+str(i)
-            #     c = getattr(self, name)
-            #     predictD[i] = c(partD[i])
-            #     y['PCB'].append(predictD[i])
+            for i in range(self.opt.nparts-3):
+                partD[i] = torch.flatten(x[:, i:i+4, :], 1)
+                name = 'classifierD'+str(i)
+                c = getattr(self, name)
+                predictD[i] = c(partD[i])
+                y['PCB'].append(predictD[i])
 
-            # partB[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:3, :]), 1), 1)
-            # predictB[3] = self.classifierB3(partB[3])
-            # y['PCB'].append(predictB[3])
+            partB[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:3, :]), 1), 1)
+            predictB[3] = self.classifierB3(partB[3])
+            y['PCB'].append(predictB[3])
 
-            # partB[4] = torch.flatten(torch.cat((x[:, :1, :], x[:, 3:4, :]), 1), 1)
-            # predictB[4] = self.classifierB4(partB[4])
-            # y['PCB'].append(predictB[4])
+            partB[4] = torch.flatten(torch.cat((x[:, :1, :], x[:, 3:4, :]), 1), 1)
+            predictB[4] = self.classifierB4(partB[4])
+            y['PCB'].append(predictB[4])
 
-            # partB[5] = torch.flatten(torch.cat((x[:, 1:2, :], x[:, 3:4, :]), 1), 1)
-            # predictB[5] = self.classifierB5(partB[5])
-            # y['PCB'].append(predictB[5])
+            partB[5] = torch.flatten(torch.cat((x[:, 1:2, :], x[:, 3:4, :]), 1), 1)
+            predictB[5] = self.classifierB5(partB[5])
+            y['PCB'].append(predictB[5])
 
-            # partC[2] = torch.flatten(torch.cat((x[:, :2, :], x[:, 3:4, :]), 1), 1)
-            # predictC[2] = self.classifierC2(partC[2])
-            # y['PCB'].append(predictC[2])
+            partC[2] = torch.flatten(torch.cat((x[:, :2, :], x[:, 3:4, :]), 1), 1)
+            predictC[2] = self.classifierC2(partC[2])
+            y['PCB'].append(predictC[2])
 
-            # partC[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:, :]), 1), 1)
-            # predictC[3] = self.classifierC3(partC[3])
-            # y['PCB'].append(predictC[3])
+            partC[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:, :]), 1), 1)
+            predictC[3] = self.classifierC3(partC[3])
+            y['PCB'].append(predictC[3])
 
-            if self.return_f:
+            if self.opt.use_triplet_loss:
                 return y, feat
             else:
                 return y
@@ -320,11 +297,10 @@ class PCB_Effi_test(nn.Module):
             part[i] = torch.flatten(x[:, i:i+1, :], 1)
             name = 'classifierA'+str(i)
             c = getattr(self, name)
-            predict[i] = c.encoder(part[i])
-            predict[i] = c.bn_layer(predict[i])
+            predict[i] = c.add_block(part[i])
             y.append(predict[i])
 
-        y = torch.cat(y, -1).view(-1, 256, 4)
+        y = torch.cat(y, -1).view(-1, 512, 4)
 
         # y = x.view(x.size(0), x.size(1), x.size(2))
 

@@ -20,25 +20,11 @@ def weights_init_kaiming(m):
         init.constant_(m.bias.data, 0.0)
 
 
-def weights_init_encoder(m):
-    classname = m.__class__.__name__
-    if classname.find('Linear') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
-        init.constant_(m.bias.data, 0.0)
-
-
-def weights_init_bn_layer(m):
-    classname = m.__class__.__name__
-    if classname.find('BatchNorm1d') != -1:
-        init.normal_(m.weight.data, 1.0, 0.02)
-        init.constant_(m.bias.data, 0.0)
-
-
 def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         init.normal_(m.weight.data, std=0.001)
-        init.constant_(m.bias, 0.0)
+        nn.init.constant_(m.bias, 0.0)
 
 
 # Defines the new fc layer and classification layer
@@ -48,38 +34,35 @@ class ClassBlock(nn.Module):
     def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, num_bottleneck=512, linear=True, return_f=False):
         super(ClassBlock, self).__init__()
         self.return_f = return_f
-        classifier = []
+        add_block = []
         if linear:
-            encoder = [nn.Linear(input_dim, num_bottleneck)]
-            encoder = nn.Sequential(*encoder)
-            encoder.apply(weights_init_encoder)
+            add_block += [nn.Linear(input_dim, num_bottleneck)]
         else:
             num_bottleneck = input_dim
         if bnorm:
-            bn_layer = [nn.BatchNorm1d(num_bottleneck)]
-            bn_layer = nn.Sequential(*bn_layer)
-            bn_layer.apply(weights_init_bn_layer)
+            add_block += [nn.BatchNorm1d(num_bottleneck)]
         if relu:
-            classifier += [nn.LeakyReLU(0.1)]
+            add_block += [nn.LeakyReLU(0.1)]
         if droprate > 0:
-            classifier += [nn.Dropout(p=droprate)]
+            add_block += [nn.Dropout(p=droprate)]
+        add_block = nn.Sequential(*add_block)
+        add_block.apply(weights_init_kaiming)
+
+        classifier = []
         classifier += [nn.Linear(num_bottleneck, class_num)]
         classifier = nn.Sequential(*classifier)
         classifier.apply(weights_init_classifier)
 
-        self.encoder = encoder
-        self.bn_layer = bn_layer
+        self.add_block = add_block
         self.classifier = classifier
 
     def forward(self, x):
-        x = self.encoder(x)
+        x = self.add_block(x)
         if self.return_f:
             f = x
-            x = self.bn_layer(x)
             x = self.classifier(x)
             return x, f
         else:
-            x = self.bn_layer(x)
             x = self.classifier(x)
             return x
 
@@ -320,8 +303,7 @@ class PCB_Effi_test(nn.Module):
             part[i] = torch.flatten(x[:, i:i+1, :], 1)
             name = 'classifierA'+str(i)
             c = getattr(self, name)
-            predict[i] = c.encoder(part[i])
-            predict[i] = c.bn_layer(predict[i])
+            predict[i] = c.add_block(part[i])
             y.append(predict[i])
 
         y = torch.cat(y, -1).view(-1, 256, 4)

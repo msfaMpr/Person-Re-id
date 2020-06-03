@@ -84,11 +84,14 @@ class PCB_Effi_GGNN(nn.Module):
         # self.graph = [[1, 1, 2], [2, 1, 3], [3, 1, 4], [4, 1, 5], [5, 1, 6],
         #               [6, 2, 5], [5, 2, 4], [4, 2, 3], [3, 2, 2], [2, 2, 1]]
 
-        self.n_edge_types = 2
-        self.graph = [[1, 1, 2], [2, 1, 3], [3, 1, 4],
-                      [4, 2, 3], [3, 2, 2], [2, 2, 1]]
+        # self.graph = [[1, 1, 2], [2, 1, 3], [3, 1, 4],
+        #               [4, 2, 3], [3, 2, 2], [2, 2, 1]]
 
-        
+        self.graph = [[1, 1, 2], [1, 2, 3], [1, 3, 4],
+                      [2, 4, 3], [2, 5, 4], [3, 6, 4]]
+
+        self.n_edge_types = 6
+
         self.state_dim = model.feature_dim
         self.n_node = self.opt.nparts
         self.n_steps = 5
@@ -127,25 +130,26 @@ class PCB_Effi_GGNN(nn.Module):
             name = 'classifierA'+str(i)
             setattr(self, name, ClassBlock(self.state_dim, self.opt.nclasses,
                                            droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
-            for i in range(self.opt.nparts-1):
-                name = 'classifierB'+str(i)
-                setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
-            for i in range(self.opt.nparts-1):
-                name = 'classifierB'+str(i+self.opt.nparts-1)
-                setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+            # for i in range(self.opt.nparts-1):
+            #     name = 'classifierB'+str(i)
+            #     setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
-            for i in range(self.opt.nparts-2):
-                name = 'classifierC'+str(i)
-                setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+            # for i in range(self.opt.nparts-1):
+            #     name = 'classifierB'+str(i+self.opt.nparts-1)
+            #     setattr(self, name, ClassBlock(2*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
-            for i in range(self.opt.nparts-2):
-                name = 'classifierC'+str(i+self.opt.nparts-2)
-                setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+            # for i in range(self.opt.nparts-2):
+            #     name = 'classifierC'+str(i)
+            #     setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
-            for i in range(self.opt.nparts-3):
-                name = 'classifierD'+str(i)
-                setattr(self, name, ClassBlock(4*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+            # for i in range(self.opt.nparts-2):
+            #     name = 'classifierC'+str(i+self.opt.nparts-2)
+            #     setattr(self, name, ClassBlock(3*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+
+            # for i in range(self.opt.nparts-3):
+            #     name = 'classifierD'+str(i)
+            #     setattr(self, name, ClassBlock(4*1280, self.opt.nclasses, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
 
     def _initialization(self):
         for m in self.modules():
@@ -206,46 +210,46 @@ class PCB_Effi_GGNN(nn.Module):
             predictA[i] = c(partA[i])
             y['PCB'].append(predictA[i])
 
-        for i in range(self.opt.nparts-1):
-            partB[i] = torch.flatten(x[:, i:i+2, :], 1)
-            name = 'classifierB'+str(i)
-            c = getattr(self, name)
-            predictB[i] = c(partB[i])
-            y['PCB'].append(predictB[i])
+        # for i in range(self.opt.nparts-1):
+        #     partB[i] = torch.flatten(x[:, i:i+2, :], 1)
+        #     name = 'classifierB'+str(i)
+        #     c = getattr(self, name)
+        #     predictB[i] = c(partB[i])
+        #     y['PCB'].append(predictB[i])
 
-        for i in range(self.opt.nparts-2):
-            partC[i] = torch.flatten(x[:, i:i+3, :], 1)
-            name = 'classifierC'+str(i)
-            c = getattr(self, name)
-            predictC[i] = c(partC[i])
-            y['PCB'].append(predictC[i])
+        # for i in range(self.opt.nparts-2):
+        #     partC[i] = torch.flatten(x[:, i:i+3, :], 1)
+        #     name = 'classifierC'+str(i)
+        #     c = getattr(self, name)
+        #     predictC[i] = c(partC[i])
+        #     y['PCB'].append(predictC[i])
 
-        for i in range(self.opt.nparts-3):
-            partD[i] = torch.flatten(x[:, i:i+4, :], 1)
-            name = 'classifierD'+str(i)
-            c = getattr(self, name)
-            predictD[i] = c(partD[i])
-            y['PCB'].append(predictD[i])
+        # for i in range(self.opt.nparts-3):
+        #     partD[i] = torch.flatten(x[:, i:i+4, :], 1)
+        #     name = 'classifierD'+str(i)
+        #     c = getattr(self, name)
+        #     predictD[i] = c(partD[i])
+        #     y['PCB'].append(predictD[i])
 
-        partB[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:3, :]), 1), 1)
-        predictB[3] = self.classifierB3(partB[3])
-        y['PCB'].append(predictB[3])
+        # partB[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:3, :]), 1), 1)
+        # predictB[3] = self.classifierB3(partB[3])
+        # y['PCB'].append(predictB[3])
 
-        partB[4] = torch.flatten(torch.cat((x[:, :1, :], x[:, 3:4, :]), 1), 1)
-        predictB[4] = self.classifierB4(partB[4])
-        y['PCB'].append(predictB[4])
+        # partB[4] = torch.flatten(torch.cat((x[:, :1, :], x[:, 3:4, :]), 1), 1)
+        # predictB[4] = self.classifierB4(partB[4])
+        # y['PCB'].append(predictB[4])
 
-        partB[5] = torch.flatten(torch.cat((x[:, 1:2, :], x[:, 3:4, :]), 1), 1)
-        predictB[5] = self.classifierB5(partB[5])
-        y['PCB'].append(predictB[5])
+        # partB[5] = torch.flatten(torch.cat((x[:, 1:2, :], x[:, 3:4, :]), 1), 1)
+        # predictB[5] = self.classifierB5(partB[5])
+        # y['PCB'].append(predictB[5])
 
-        partC[2] = torch.flatten(torch.cat((x[:, :2, :], x[:, 3:4, :]), 1), 1)
-        predictC[2] = self.classifierC2(partC[2])
-        y['PCB'].append(predictC[2])
+        # partC[2] = torch.flatten(torch.cat((x[:, :2, :], x[:, 3:4, :]), 1), 1)
+        # predictC[2] = self.classifierC2(partC[2])
+        # y['PCB'].append(predictC[2])
 
-        partC[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:, :]), 1), 1)
-        predictC[3] = self.classifierC3(partC[3])
-        y['PCB'].append(predictC[3])
+        # partC[3] = torch.flatten(torch.cat((x[:, :1, :], x[:, 2:, :]), 1), 1)
+        # predictC[3] = self.classifierC3(partC[3])
+        # y['PCB'].append(predictC[3])
 
         return y
 
@@ -257,6 +261,7 @@ class PCB_Effi_GGNN_test(nn.Module):
         self.model = model.model
         self.avgpool = model.avgpool
 
+        '''
         self.graph = model.graph
 
         self.state_dim = model.state_dim
@@ -280,6 +285,8 @@ class PCB_Effi_GGNN_test(nn.Module):
         # # Output Model
         # self.out = model.out
 
+        '''
+
         for i in range(self.opt.nparts):
             name = 'classifierA'+str(i)
             c = getattr(model, name)
@@ -291,26 +298,28 @@ class PCB_Effi_GGNN_test(nn.Module):
         x = self.avgpool(x)
         x = x.squeeze()
 
-        # # Gated Graph Neural Network
-        # gx = torch.transpose(x, 1, 2)  # b*4*1280
-        # for i_step in range(self.n_steps):
-        #     in_states = []
-        #     out_states = []
-        #     for i in range(self.n_edge_types):
-        #         in_states.append(self.in_fcs[i](gx))
-        #         out_states.append(self.out_fcs[i](gx))
-        #     in_states = torch.stack(in_states).transpose(0, 1).contiguous()
-        #     in_states = in_states.view(-1, self.n_node *
-        #                                self.n_edge_types, self.state_dim)
-        #     out_states = torch.stack(out_states).transpose(0, 1).contiguous()
-        #     out_states = out_states.view(-1, self.n_node *
-        #                                  self.n_edge_types, self.state_dim)
-        #     am = self.am.repeat(gx.size(0), 1, 1)
-        #     gx = self.propogator(in_states, out_states, gx, am)
-        # gx = torch.transpose(gx, 1, 2)
+        '''
+        # Gated Graph Neural Network
+        gx = torch.transpose(x, 1, 2)  # b*4*1280
+        for i_step in range(self.n_steps):
+            in_states = []
+            out_states = []
+            for i in range(self.n_edge_types):
+                in_states.append(self.in_fcs[i](gx))
+                out_states.append(self.out_fcs[i](gx))
+            in_states = torch.stack(in_states).transpose(0, 1).contiguous()
+            in_states = in_states.view(-1, self.n_node *
+                                       self.n_edge_types, self.state_dim)
+            out_states = torch.stack(out_states).transpose(0, 1).contiguous()
+            out_states = out_states.view(-1, self.n_node *
+                                         self.n_edge_types, self.state_dim)
+            am = self.am.repeat(gx.size(0), 1, 1)
+            gx = self.propogator(in_states, out_states, gx, am)
+        gx = torch.transpose(gx, 1, 2)
 
-        # y = torch.cat([x, gx], 2)
-        # y = x
+        y = torch.cat([x, gx], 2)
+        y = x
+        '''
 
         part = {}
         predict = {}

@@ -253,6 +253,7 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                     for i in range(num_part):
                         part[i] = outputs['PCB'][i]
+                        # feat[i] = features[i]
 
                     score = sm(part[0]) + sm(part[1]) + \
                         sm(part[2]) + sm(part[3])
@@ -263,25 +264,25 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                     for i in range(1, num_part):
                         loss += loss_func(part[i], features, labels)
 
-                    for i in range(num_part-1):
-                        loss += loss_func(outputs['PCB'][num_part+i], features, labels)
+                    # for i in range(num_part-1):
+                    #     loss += loss_func(outputs['PCB'][num_part+i], features, labels)
 
-                    for i in range(num_part-2):
-                        loss + loss_func(outputs['PCB']
-                                         [2*num_part+i-1], features, labels)
+                    # for i in range(num_part-2):
+                    #     loss + loss_func(outputs['PCB']
+                    #                      [2*num_part+i-1], features, labels)
 
-                    for i in range(num_part-3):
-                        loss + loss_func(outputs['PCB']
-                                         [3*num_part+i-3], features, labels)
+                    # for i in range(num_part-3):
+                    #     loss + loss_func(outputs['PCB']
+                    #                      [3*num_part+i-3], features, labels)
 
-                    for i in range(5):
-                        loss += loss_func(outputs['PCB'][10+i], features, labels)
+                    # for i in range(5):
+                    #     loss += loss_func(outputs['PCB'][10+i], features, labels)
 
                     if opt.LSTM:
-                        loss /= 10.0
+                        loss /= 4.0
                         loss += loss_func(outputs['LSTM'], features, labels)
                     if opt.GGNN:
-                        loss /= 10.0
+                        loss /= 4.0
                         loss += loss_func(outputs['GGNN'], features, labels)
 
                 # backward + optimize only if in training phase
@@ -397,8 +398,8 @@ if opt.LSTM:
     # model = load_network(model, model_name)
 
 if opt.GGNN:
-    model_name = 'test-pcb-ac'
-    model = load_network(model, model_name)
+    # model_name = 'test-pcb-ac'
+    # model = load_network(model, model_name)
     model = PCB_Effi_GGNN(model)
     # model_name = 'GGNN'
     # model = load_network(model, model_name)
@@ -435,23 +436,23 @@ else:
         + list(map(id, model.classifierA2.parameters()))
         + list(map(id, model.classifierA3.parameters()))
 
-        + list(map(id, model.classifierB0.parameters()))
-        + list(map(id, model.classifierB1.parameters()))
-        + list(map(id, model.classifierB2.parameters()))
+        # + list(map(id, model.classifierB0.parameters()))
+        # + list(map(id, model.classifierB1.parameters()))
+        # + list(map(id, model.classifierB2.parameters()))
 
-        + list(map(id, model.classifierC0.parameters()))
-        + list(map(id, model.classifierC1.parameters()))
+        # + list(map(id, model.classifierC0.parameters()))
+        # + list(map(id, model.classifierC1.parameters()))
 
-        + list(map(id, model.classifierD0.parameters()))
+        # + list(map(id, model.classifierD0.parameters()))
 
-        + list(map(id, model.classifierB3.parameters()))
-        + list(map(id, model.classifierB4.parameters()))
-        + list(map(id, model.classifierB5.parameters()))
+        # + list(map(id, model.classifierB3.parameters()))
+        # + list(map(id, model.classifierB4.parameters()))
+        # + list(map(id, model.classifierB5.parameters()))
 
-        + list(map(id, model.classifierC2.parameters()))
-        + list(map(id, model.classifierC3.parameters()))
+        # + list(map(id, model.classifierC2.parameters()))
+        # + list(map(id, model.classifierC3.parameters()))
 
-        # + list(map(id, model.classifier.parameters()))
+        + list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
@@ -467,23 +468,23 @@ else:
         {'params': model.classifierA2.parameters(), 'lr': 0.0035},
         {'params': model.classifierA3.parameters(), 'lr': 0.0035},
         
-        {'params': model.classifierB0.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB1.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB2.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierB0.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierB1.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierB2.parameters(), 'lr': 0.0035},
 
-        {'params': model.classifierC0.parameters(), 'lr': 0.0035},
-        {'params': model.classifierC1.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierC0.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierC1.parameters(), 'lr': 0.0035},
 
-        {'params': model.classifierD0.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierD0.parameters(), 'lr': 0.0035},
 
-        {'params': model.classifierB3.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB4.parameters(), 'lr': 0.0035},
-        {'params': model.classifierB5.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierB3.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierB4.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierB5.parameters(), 'lr': 0.0035},
 
-        {'params': model.classifierC2.parameters(), 'lr': 0.0035},
-        {'params': model.classifierC3.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierC2.parameters(), 'lr': 0.0035},
+        # {'params': model.classifierC3.parameters(), 'lr': 0.0035},
 
-        # {'params': model.classifier.parameters(), 'lr': 0.0035},
+        {'params': model.classifier.parameters(), 'lr': 0.0035},
 
         ])
 

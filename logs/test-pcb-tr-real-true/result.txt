@@ -1,0 +1,5 @@
+calculate initial distance
+Reranking complete in 31m 51s
+top1:0.933492 top5:0.962886 top10:0.971793 mAP:0.904124
+torch.Size([3368, 1024])
+Rank@1:0.917162 Rank@5:0.971200 Rank@10:0.982482 mAP:0.794642

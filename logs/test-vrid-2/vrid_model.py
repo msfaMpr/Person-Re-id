@@ -225,10 +225,10 @@ class VRidGGNN_test(nn.Module):
         # # Output Model
         # self.out = model.out
 
-        # for i in range(self.opt.nparts):
-        #     name = 'classifierA'+str(i)
-        #     c = getattr(model, name)
-        #     setattr(self, name, c)
+        for i in range(self.opt.nparts):
+            name = 'classifierA'+str(i)
+            c = getattr(model, name)
+            setattr(self, name, c)
 
     def forward(self, x):
         b = x.size(0)
