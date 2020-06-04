@@ -56,6 +56,8 @@ parser.add_argument('--freeze_backbone', action='store_true', help='train backbo
 parser.add_argument('--use_triplet_loss', action='store_true', help='use triplet loss for training')
 parser.add_argument('--label_smoothing', action='store_true', help='use label smoothing')
 parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
+parser.add_argument('--seq_len', default=4, type=int, help='number of frames in a sample')
+parser.add_argument('--sample_method', default='random', type=str, help='method to sample frames')
 
 opt = parser.parse_args()
 
@@ -108,7 +110,7 @@ train_transforms = T.Compose([
 dataset = init_dataset('mars', root='../')
 dataset_sizes = {}
 dataset_sizes['train'] = dataset.num_train_imgs
-train_set = VideoDataset(dataset.train, 4, train_transforms)
+train_set = VideoDataset(dataset.train, opt.seq_len, opt.sample_method,train_transforms)
 dataloaders = {}
 dataloaders['train'] = DataLoader(
     train_set, batch_size=opt.batchsize, drop_last=True,

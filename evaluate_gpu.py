@@ -4,6 +4,7 @@ import numpy as np
 #import time
 import os
 
+
 #######################################################################
 # Evaluate
 def evaluate(qf,ql,qc,gf,gl,gc):

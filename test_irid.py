@@ -159,8 +159,8 @@ def extract_feature(model, dataloaders):
                         input_img, scale_factor=scale, mode='bicubic', align_corners=False)
                 outputs = model(input_img)
                 ff += outputs
-        # norm feature
 
+        # norm feature
         fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
         ff = ff.div(fnorm.expand_as(ff))
         ff = ff.view(ff.size(0), -1)

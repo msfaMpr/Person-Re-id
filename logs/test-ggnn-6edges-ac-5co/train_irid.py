@@ -282,7 +282,7 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                         # loss /= 15.0
                         loss += loss_func(outputs['LSTM'], features, labels)
                     if opt.GGNN:
-                        # loss /= 15.0
+                        loss /= 5.0
                         loss += loss_func(outputs['GGNN'], features, labels)
 
                 # backward + optimize only if in training phase
