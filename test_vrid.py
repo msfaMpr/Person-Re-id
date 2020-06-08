@@ -35,13 +35,15 @@ parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...o
 parser.add_argument('--test_dir', default='../Market/pytorch', type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
-parser.add_argument('--batchsize', default=1, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--backbone', default='EfficientNet-B0', type=str, help='backbone model name')
 parser.add_argument('--single_cls', action='store_true', help='use signle classifier')
 parser.add_argument('--LSTM', action='store_true', help='use LSTM')
 parser.add_argument('--GGNN', action='store_true', help='use GGNN')
 parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
 parser.add_argument('--ms', default='1', type=str, help='multiple_scale: e.g. 1 1,1.1  1,1.1,1.2')
+parser.add_argument('--seq_len', default=4, type=int, help='number of frames in a sample')
+parser.add_argument('--sample_method', default='evenly', type=str, help='method to sample frames')
 
 opt = parser.parse_args()
 
@@ -103,14 +105,12 @@ data_transforms = transforms.Compose([
 dataset = init_dataset('mars', root='../')
 
 queryloader = DataLoader(
-    VideoDataset(dataset.query, seq_len=4, transform=data_transforms),
-    batch_size=opt.batchsize, shuffle=False, num_workers=8, drop_last=False,
-)
+    VideoDataset(dataset.query, seq_len=opt.seq_len, sample_method=opt.sample_method,
+    transform=data_transforms), batch_size=opt.batchsize, shuffle=False, num_workers=8, drop_last=False)
 
 galleryloader = DataLoader(
-    VideoDataset(dataset.gallery, seq_len=4, transform=data_transforms),
-    batch_size=opt.batchsize, shuffle=False, num_workers=8, drop_last=False,
-)
+    VideoDataset(dataset.gallery, seq_len=opt.seq_len,sample_method=opt.sample_method,
+    transform=data_transforms), batch_size=opt.batchsize, shuffle=False, num_workers=8, drop_last=False)
 
 use_gpu = torch.cuda.is_available()
 
@@ -144,32 +144,30 @@ def extract_feature(model, dataloaders):
     features = torch.FloatTensor()
     # count = 0
     for data in tqdm(dataloaders):
-        imgs, label, _ = data
-        for i in range(imgs.size(1)):
-            img = imgs[:, i, :, :, :, :]
-            n, t, c, h, w = img.size()
-            # count += n
-            # print(count)s
-            ff = torch.FloatTensor(n, 1280, opt.nparts).zero_().cuda()
+        img, label, _ = data
+        n, t, c, h, w = img.size()
+        # count += n
+        # print(count)s
+        ff = torch.FloatTensor(n, 1280, 4).zero_().cuda()
 
-            for i in range(2):
-                if(i == 1):
-                    img = fliplr(img)
-                input_img = Variable(img.cuda())
-                for scale in ms:
-                    if scale != 1:
-                        # bicubic is only  available in pytorch>= 1.1
-                        input_img = nn.functional.interpolate(
-                            input_img, scale_factor=scale, mode='bicubic', align_corners=False)
-                    outputs = model(input_img)
-                    ff += outputs
-            # norm feature
+        for i in range(2):
+            if(i == 1):
+                img = fliplr(img)
+            input_img = Variable(img.cuda())
+            for scale in ms:
+                if scale != 1:
+                    # bicubic is only  available in pytorch>= 1.1
+                    input_img = nn.functional.interpolate(
+                        input_img, scale_factor=scale, mode='bicubic', align_corners=False)
+                outputs = model(input_img)
+                ff += outputs
+        # norm feature
 
-            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
-            ff = ff.div(fnorm.expand_as(ff))
-            ff = ff.view(ff.size(0), -1)
+        fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
+        ff = ff.div(fnorm.expand_as(ff))
+        ff = ff.view(ff.size(0), -1)
 
-            features = torch.cat((features, ff.data.cpu()), 0)
+        features = torch.cat((features, ff.data.cpu()), 0)
     return features
 
 

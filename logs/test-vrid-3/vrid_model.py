@@ -81,20 +81,23 @@ class VRidGGNN(nn.Module):
         self.avgpool = model.avgpool
         self.dropout = model.dropout
 
+        self.state_dim = model.feature_dim
+
+        '''
         # self.graph = [[1, 1, 2], [2, 1, 3], [3, 1, 4], [4, 1, 5], [5, 1, 6],
         #               [6, 2, 5], [5, 2, 4], [4, 2, 3], [3, 2, 2], [2, 2, 1]]
 
-        self.graph = [[1, 1, 1], [2, 1, 2], [3, 1, 3], [4, 1, 4],
-                                 [1, 2, 2], [2, 2, 3], [3, 2, 4],
-                                 [4, 3, 3], [3, 3, 2], [2, 3, 1]]
+        # self.graph = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4],
+        #                          [1, 5, 2], [2, 6, 3], [3, 7, 4],
+        #                          [4, 8, 3], [3, 9, 2], [2, 10, 1]]
 
-        # self.graph = [[1, 1, 2], [1, 2, 3], [1, 3, 4], [2, 4, 3], [2, 5, 4], [3, 6, 4],
-        #               [5, 1, 6], [5, 2, 7], [5, 3, 8], [6, 4, 7], [6, 5, 8], [7, 6, 8],
-        #               [9, 1, 10], [9, 2, 11], [9, 3, 12], [10, 4, 11], [10, 5, 12], [11, 6, 12],
-        #               [13, 1, 14], [13, 2, 15], [13, 3, 16], [14, 4, 15], [14, 5, 16], [15, 6, 16]]
+        self.graph = [[1, 1, 2], [1, 2, 3], [1, 3, 4], [2, 4, 3], [2, 5, 4], [3, 6, 4],
+                      [5, 1, 6], [5, 2, 7], [5, 3, 8], [6, 4, 7], [6, 5, 8], [7, 6, 8],
+                      [9, 1, 10], [9, 2, 11], [9, 3, 12], [10, 4, 11], [10, 5, 12], [11, 6, 12],
+                      [13, 1, 14], [13, 2, 15], [13, 3, 16], [14, 4, 15], [14, 5, 16], [15, 6, 16]]
 
-        self.n_edge_types = 3
-    
+        self.n_edge_types = 10
+
         self.state_dim = model.feature_dim
         self.n_node = self.opt.nparts
         self.n_steps = 4
@@ -127,7 +130,8 @@ class VRidGGNN(nn.Module):
         self._initialization()
 
         self.classifier = ClassBlock(self.opt.nparts*self.state_dim, self.opt.nclasses, droprate=0.5,
-                                                            relu=False, bnorm=True, num_bottleneck=256)
+                                     relu=False, bnorm=True, num_bottleneck=256)
+        '''
 
         for i in range(self.opt.nparts):
             name = 'classifierA'+str(i)
@@ -156,21 +160,10 @@ class VRidGGNN(nn.Module):
 
         x = self.avgpool(x)  # b*1280*4*1
         x = self.dropout(x)
-        x = x.transpose(1, 2).squeeze()
 
-        y = {}
-
-        partA, partB, partC, partD = {}, {}, {}, {}
-        predictA, predictB, predictC, predictD = {}, {}, {}, {}
-        y['PCB'] = []
-        for i in range(self.opt.nparts):
-            partA[i] = torch.flatten(x[:, i:i+1, :], 1)
-            name = 'classifierA'+str(i)
-            c = getattr(self, name)
-            predictA[i] = c(partA[i]).view(b, -1)
-            y['PCB'].append(predictA[i])
-
-        x = x.view(b, t, self.opt.nparts, -1)
+        '''
+        x = x.view(b, t, -1, self.opt.nparts)
+        x = torch.transpose(x, 2, 3)  # b*t*4*1280
 
         gx = x[:, 0, :, :]
         # Gated Graph Neural Network
@@ -193,8 +186,24 @@ class VRidGGNN(nn.Module):
         # gx = self.out(gx)
         gx = torch.transpose(gx, 1, 2)
         gx = torch.flatten(gx, 1)
+        '''
 
-        y['GGNN'] = self.classifier(gx)
+        y = {}
+        # y['GGNN'] = self.classifier(gx)
+
+        partA, partB, partC, partD = {}, {}, {}, {}
+        predictA, predictB, predictC, predictD = {}, {}, {}, {}
+        y['PCB'] = []
+        # get six part feature batchsize*1280*4
+
+        x = x.transpose(1, 2).squeeze()
+
+        for i in range(self.opt.nparts):
+            partA[i] = torch.flatten(x[:, i:i+1, :], 1)
+            name = 'classifierA'+str(i)
+            c = getattr(self, name)
+            predictA[i] = c(partA[i])
+            y['PCB'].append(predictA[i])
 
         return y
 
@@ -229,12 +238,10 @@ class VRidGGNN_test(nn.Module):
         # # Output Model
         # self.out = model.out
 
-        for i in range(self.opt.nparts):
-            name = 'classifierA'+str(i)
-            c = getattr(model, name)
-            setattr(self, name, c)
-
-        self.classifier = model.classifier
+        # for i in range(self.opt.nparts):
+        #     name = 'classifierA'+str(i)
+        #     c = getattr(model, name)
+        #     setattr(self, name, c)
 
     def forward(self, x):
         b = x.size(0)
@@ -243,23 +250,10 @@ class VRidGGNN_test(nn.Module):
 
         x = self.model.extract_features(x)
         x = self.avgpool(x)
-        x = x.transpose(1, 2).squeeze()
-        
-        y = []
+        x = x.squeeze()
 
-        partA, partB, partC, partD = {}, {}, {}, {}
-        predictA, predictB, predictC, predictD = {}, {}, {}, {}
-
-        # for i in range(self.opt.nparts):
-        #     partA[i] = torch.flatten(x[:, i:i+1, :], 1)
-        #     name = 'classifierA'+str(i)
-        #     c = getattr(self, name)
-        #     predictA[i] = c.encoder(partA[i])
-        #     predictA[i] = c.bn_layer(predictA[i])
-        #     predictA[i] = predictA[i].view(b, -1)
-        #     y.append(predictA[i])
-
-        x = x.view(b, t, self.opt.nparts, -1)
+        x = x.view(b, t, -1, self.opt.nparts)
+        x = torch.transpose(x, 2, 3)  # b*t*4*1280
 
         gx = x[:, 0, :, :]
         # Gated Graph Neural Network
@@ -281,13 +275,23 @@ class VRidGGNN_test(nn.Module):
 
         # gx = self.out(gx)
         gx = torch.transpose(gx, 1, 2)
-        # gx = torch.flatten(gx, 1)
 
-        # predict = self.classifier.encoder(gx)
-        # predict = self.classifier.bn_layer(predict)
-        # y.append(predict)    
-        # y = torch.cat(y, -1).view(-1, 256, 1)
+        # part = {}
+        # predict = {}
+        # y = []
+        
+        # x = x.transpose(1, 2)
+        # for i in range(self.opt.nparts):
+        #     part[i] = torch.flatten(x[:, i:i+1, :], 1)
+        #     name = 'classifierA'+str(i)
+        #     c = getattr(self, name)
+        #     predict[i] = c.add_block(part[i])
+        #     y.append(predict[i])
 
+        # y = torch.cat(y, -1).view(-1, 256, 4)
+
+        # y = torch.cat([x, gx], 2)
+        # y = x
         y = gx
 
         return y

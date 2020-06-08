@@ -167,7 +167,7 @@ class VRidGGNN(nn.Module):
             partA[i] = torch.flatten(x[:, i:i+1, :], 1)
             name = 'classifierA'+str(i)
             c = getattr(self, name)
-            predictA[i] = c(partA[i]).view(b, -1)
+            predictA[i] = c(partA[i])
             y['PCB'].append(predictA[i])
 
         x = x.view(b, t, self.opt.nparts, -1)
@@ -229,12 +229,10 @@ class VRidGGNN_test(nn.Module):
         # # Output Model
         # self.out = model.out
 
-        for i in range(self.opt.nparts):
-            name = 'classifierA'+str(i)
-            c = getattr(model, name)
-            setattr(self, name, c)
-
-        self.classifier = model.classifier
+        # for i in range(self.opt.nparts):
+        #     name = 'classifierA'+str(i)
+        #     c = getattr(model, name)
+        #     setattr(self, name, c)
 
     def forward(self, x):
         b = x.size(0)
@@ -243,23 +241,10 @@ class VRidGGNN_test(nn.Module):
 
         x = self.model.extract_features(x)
         x = self.avgpool(x)
-        x = x.transpose(1, 2).squeeze()
-        
-        y = []
+        x = x.squeeze()
 
-        partA, partB, partC, partD = {}, {}, {}, {}
-        predictA, predictB, predictC, predictD = {}, {}, {}, {}
-
-        # for i in range(self.opt.nparts):
-        #     partA[i] = torch.flatten(x[:, i:i+1, :], 1)
-        #     name = 'classifierA'+str(i)
-        #     c = getattr(self, name)
-        #     predictA[i] = c.encoder(partA[i])
-        #     predictA[i] = c.bn_layer(predictA[i])
-        #     predictA[i] = predictA[i].view(b, -1)
-        #     y.append(predictA[i])
-
-        x = x.view(b, t, self.opt.nparts, -1)
+        x = x.view(b, t, -1, self.opt.nparts)
+        x = torch.transpose(x, 2, 3)  # b*t*4*1280
 
         gx = x[:, 0, :, :]
         # Gated Graph Neural Network
@@ -281,13 +266,23 @@ class VRidGGNN_test(nn.Module):
 
         # gx = self.out(gx)
         gx = torch.transpose(gx, 1, 2)
-        # gx = torch.flatten(gx, 1)
 
-        # predict = self.classifier.encoder(gx)
-        # predict = self.classifier.bn_layer(predict)
-        # y.append(predict)    
-        # y = torch.cat(y, -1).view(-1, 256, 1)
+        # part = {}
+        # predict = {}
+        # y = []
+        
+        # x = x.transpose(1, 2)
+        # for i in range(self.opt.nparts):
+        #     part[i] = torch.flatten(x[:, i:i+1, :], 1)
+        #     name = 'classifierA'+str(i)
+        #     c = getattr(self, name)
+        #     predict[i] = c.add_block(part[i])
+        #     y.append(predict[i])
 
+        # y = torch.cat(y, -1).view(-1, 256, 4)
+
+        # y = torch.cat([x, gx], 2)
+        # y = x
         y = gx
 
         return y

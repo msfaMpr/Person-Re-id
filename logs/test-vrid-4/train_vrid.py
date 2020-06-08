@@ -214,7 +214,6 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                     _, preds = torch.max(score.data, 1)
 
-                    r_labels = labels.view(-1, 1).repeat(1, 4).view(-1)
                     loss = loss_func(part[0], features, labels)
                     for i in range(1, num_part):
                         loss += loss_func(part[i], features, labels)
@@ -398,7 +397,8 @@ else:
 
         # + list(map(id, model.classifierC2.parameters()))
         # + list(map(id, model.classifierC3.parameters()))
-        + list(map(id, model.classifier.parameters()))
+
+        +list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))

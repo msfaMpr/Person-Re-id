@@ -43,7 +43,7 @@ parser.add_argument('--name', default='ResNet50', type=str, help='output model n
 parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data')
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
-parser.add_argument('--batchsize', default=16, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--nparts', default=4, type=int, help='number of stipes')
 parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--warm_epoch', default=10, type=int, help='the first K epoch that needs warm up')
@@ -56,7 +56,7 @@ parser.add_argument('--freeze_backbone', action='store_true', help='train backbo
 parser.add_argument('--use_triplet_loss', action='store_true', help='use triplet loss for training')
 parser.add_argument('--label_smoothing', action='store_true', help='use label smoothing')
 parser.add_argument('--bidirectional', action='store_true', help='use bidirectional lstm')
-parser.add_argument('--seq_len', default=4, type=int, help='number of frames in a sample')
+parser.add_argument('--seq_len', default=1, type=int, help='number of frames in a sample')
 parser.add_argument('--sample_method', default='random', type=str, help='method to sample frames')
 
 opt = parser.parse_args()
@@ -214,7 +214,6 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                     _, preds = torch.max(score.data, 1)
 
-                    r_labels = labels.view(-1, 1).repeat(1, 4).view(-1)
                     loss = loss_func(part[0], features, labels)
                     for i in range(1, num_part):
                         loss += loss_func(part[i], features, labels)
@@ -234,10 +233,10 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                     #     loss += loss_func(outputs['PCB'][10+i], features, labels)
 
                     if opt.LSTM:
-                        # loss /= 5.0
+                        loss /= 5.0
                         loss += loss_func(outputs['LSTM'], features, labels)
                     if opt.GGNN:
-                        # loss /= 5.0
+                        loss /= 5.0
                         loss += loss_func(outputs['GGNN'], features, labels)
 
                 # backward + optimize only if in training phase
@@ -398,7 +397,8 @@ else:
 
         # + list(map(id, model.classifierC2.parameters()))
         # + list(map(id, model.classifierC3.parameters()))
-        + list(map(id, model.classifier.parameters()))
+
+        # +list(map(id, model.classifier.parameters()))
     )
     if opt.freeze_backbone:
         ignored_params += (list(map(id, model.model.parameters())))
@@ -430,7 +430,7 @@ else:
         # {'params': model.classifierC2.parameters(), 'lr': 0.0035},
         # {'params': model.classifierC3.parameters(), 'lr': 0.0035},
 
-        {'params': model.classifier.parameters(), 'lr': 0.0035},
+        # {'params': model.classifier.parameters(), 'lr': 0.0035},
 
         ])
 

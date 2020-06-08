@@ -215,9 +215,9 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
                     _, preds = torch.max(score.data, 1)
 
                     r_labels = labels.view(-1, 1).repeat(1, 4).view(-1)
-                    loss = loss_func(part[0], features, labels)
+                    loss = loss_func(part[0], features, r_labels)
                     for i in range(1, num_part):
-                        loss += loss_func(part[i], features, labels)
+                        loss += loss_func(part[i], features, r_labels)
 
                     # for i in range(num_part-1):
                     #     loss += loss_func(outputs['PCB'][num_part+i], features, labels)
@@ -251,7 +251,7 @@ def train_model(model, loss_func, optimizer, scheduler, num_epochs=25):
 
                 # statistics
                 running_loss += loss.item() * now_batch_size
-                running_corrects += float(torch.sum(preds == labels.data))
+                running_corrects += float(torch.sum(preds == r_labels.data))
 
             scheduler.step()
 
